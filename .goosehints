@@ -1,0 +1,24 @@
+# GooseHints Configuration
+
+## Safety Rules
+- DO NOT automatically run applications or games
+- Let the user run their own applications
+- Focus on setup, configuration, and code changes only
+
+## Allowed Actions
+- Create and modify code files
+- Set up development environments
+- Install dependencies
+- Create documentation
+- Provide instructions for running
+
+## Restricted Actions
+- Running applications directly
+- Starting servers
+- Launching games
+- Opening applications
+
+## Development Guidelines
+- Always provide clear instructions for running applications
+- Let the user maintain control over execution
+- Focus on code quality and setup
