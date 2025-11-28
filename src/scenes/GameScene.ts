@@ -128,38 +128,45 @@ export class GameScene extends Phaser.Scene {
     }));
 
     // Left platform (y=450) to upper-left platform (y=280)
+    // topY needs to be above 280, bottomY near 450
+    // y=355, height=190 → topY=260, bottomY=450
     this.ladders.push(new Ladder({
       scene: this,
       x: 200,
-      y: 365,        // Center between platforms
-      height: 170,   // From y=250 to y=420
+      y: 355,
+      height: 190,
       type: 'ladder',
     }));
 
     // Right platform (y=450) to upper-right platform (y=280)
+    // Same calculation: topY=260, bottomY=450
     this.ladders.push(new Ladder({
       scene: this,
       x: 600,
-      y: 365,
-      height: 170,
+      y: 355,
+      height: 190,
       type: 'rope',
     }));
 
     // Middle platform (y=380) to top platform (y=180)
+    // topY needs to be above 180, bottomY near 380
+    // y=270, height=220 → topY=160, bottomY=380
     this.ladders.push(new Ladder({
       scene: this,
       x: 400,
-      y: 280,
-      height: 200,   // From y=150 to y=350
+      y: 270,
+      height: 220,
       type: 'ladder',
     }));
 
-    // Upper platforms to top
+    // Upper-left platform (y=280) to top platform (y=180)
+    // topY needs to be above 180, bottomY near 280
+    // y=220, height=120 → topY=160, bottomY=280
     this.ladders.push(new Ladder({
       scene: this,
       x: 300,
-      y: 230,
-      height: 100,
+      y: 220,
+      height: 120,
       type: 'ladder',
     }));
   }
