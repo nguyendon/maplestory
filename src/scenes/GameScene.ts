@@ -2,13 +2,21 @@ import Phaser from 'phaser';
 import { SCENES, GAME_WIDTH } from '../config/constants';
 import { Player } from '../entities/Player';
 import { Ladder } from '../entities/Ladder';
+import { Monster } from '../entities/Monster';
+import { CombatManager } from '../combat/CombatManager';
+import { EffectsManager } from '../effects/EffectsManager';
+import { HitEffectType } from '../effects/HitEffect';
+import { getMonsterDefinition } from '../config/MonsterData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private ladders: Ladder[] = [];
+  private monsters: Monster[] = [];
   private debugText!: Phaser.GameObjects.Text;
   private playerPlatformCollider!: Phaser.Physics.Arcade.Collider;
+  private combatManager!: CombatManager;
+  private effectsManager!: EffectsManager;
 
   constructor() {
     super({ key: SCENES.GAME });
@@ -50,12 +58,69 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Instructions
-    this.add.text(10, 560, 'Arrows: Move | Space: Jump (double jump!) | Up near ladder: Climb', {
+    this.add.text(10, 560, 'Arrows: Move | Space: Jump | Z: Attack | Up: Climb', {
       font: '12px monospace',
       color: '#ffffff',
       backgroundColor: '#00000080',
       padding: { x: 5, y: 3 },
     });
+
+    // Initialize combat and effects managers
+    this.combatManager = new CombatManager(this);
+    this.effectsManager = new EffectsManager(this);
+
+    // Create monsters
+    this.createMonsters();
+
+    // Listen for combat events
+    this.events.on('combat:hit', this.onCombatHit, this);
+    this.events.on('monster:damaged', this.onMonsterDamaged, this);
+    this.events.on('monster:death', this.onMonsterDeath, this);
+  }
+
+  private createMonsters(): void {
+    // Spawn slimes on the ground
+    const slimePositions = [
+      { x: 300, y: 500 },
+      { x: 500, y: 500 },
+      { x: 700, y: 500 },
+    ];
+
+    slimePositions.forEach(pos => {
+      const monster = new Monster(
+        this,
+        pos.x,
+        pos.y,
+        'SLIME',
+        getMonsterDefinition('SLIME')
+      );
+      monster.setTarget(this.player);
+      this.monsters.push(monster);
+
+      // Add collision with platforms
+      this.physics.add.collider(monster, this.platforms);
+
+      // Register hurtbox with combat manager
+      this.combatManager.registerHurtbox(monster.getHurtbox());
+    });
+  }
+
+  private onCombatHit(data: { damage: number; x: number; y: number; isCritical: boolean }): void {
+    // Show damage number
+    this.effectsManager.showDamage(data.x, data.y - 20, data.damage, data.isCritical);
+
+    // Show hit effect
+    this.effectsManager.showHitEffect(data.x, data.y, HitEffectType.PHYSICAL);
+  }
+
+  private onMonsterDamaged(_data: { monster: Monster; damage: number; x: number; y: number }): void {
+    // Additional effects for monster damage
+    this.cameras.main.shake(50, 0.002);
+  }
+
+  private onMonsterDeath(data: { monster: Monster; exp: number; x: number; y: number }): void {
+    // Show exp gain (future: add to player)
+    console.log(`+${data.exp} EXP`);
   }
 
   update(time: number, delta: number): void {
@@ -80,14 +145,73 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // Update monsters
+    this.monsters.forEach(monster => {
+      monster.update(delta);
+    });
+
+    // Update combat system
+    this.combatManager.update();
+
+    // Update effects
+    this.effectsManager.update(delta);
+
+    // Handle player attack hitbox
+    this.handlePlayerAttack();
+
     // Update debug info
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     this.debugText.setText([
       `State: ${this.player.getCurrentState()}`,
       `Position: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})`,
       `Velocity: (${Math.round(body.velocity.x)}, ${Math.round(body.velocity.y)})`,
-      `Climbing: ${this.player.isClimbing()}`,
+      `Monsters: ${this.monsters.filter(m => !m['isDead']).length}/${this.monsters.length}`,
     ]);
+  }
+
+  private handlePlayerAttack(): void {
+    const hitbox = this.player.activeHitbox;
+    if (!hitbox) return;
+
+    const attackData = this.player.getAttackData();
+    if (!attackData) return;
+
+    // Check collision with all monster hurtboxes
+    this.monsters.forEach(monster => {
+      if (monster['isDead']) return;
+
+      const hurtbox = monster.getHurtbox();
+      if (hurtbox.isInvincible()) return;
+
+      // Check overlap
+      const monsterBounds = hurtbox.getHurtboxBounds();
+      if (Phaser.Geom.Rectangle.Overlaps(hitbox, monsterBounds)) {
+        // Calculate damage
+        const baseDamage = attackData.damage;
+        const variance = 0.9 + Math.random() * 0.2;
+        const isCritical = Math.random() < 0.1;
+        const damage = Math.floor(baseDamage * variance * (isCritical ? 1.5 : 1));
+
+        // Apply knockback direction based on player facing
+        const knockbackDir = this.player.flipX ? -1 : 1;
+        const knockback = {
+          x: attackData.knockback.x * knockbackDir,
+          y: attackData.knockback.y,
+        };
+
+        // Apply damage
+        hurtbox.takeDamage(damage, knockback, isCritical);
+        hurtbox.applyInvincibility(30); // 30 frames i-frames
+
+        // Emit hit event for effects
+        this.events.emit('combat:hit', {
+          damage,
+          x: monster.x,
+          y: monster.y,
+          isCritical,
+        });
+      }
+    });
   }
 
   private createPlatforms(): void {
