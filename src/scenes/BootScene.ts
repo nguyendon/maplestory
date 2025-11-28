@@ -13,6 +13,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     this.createAnimations();
+    this.createHitEffects();
     this.scene.start(SCENES.GAME);
   }
 
@@ -232,6 +233,67 @@ export class BootScene extends Phaser.Scene {
       frames: this.anims.generateFrameNumbers('player', { frames: frameMap.climb }),
       frameRate: ANIM.CLIMB_FPS,
       repeat: -1,
+    });
+  }
+
+  private createHitEffects(): void {
+    // Physical hit effect - star burst
+    const physicalGraphics = this.make.graphics({ x: 0, y: 0 });
+    physicalGraphics.fillStyle(0xffffff, 1);
+
+    const centerX = 16;
+    const centerY = 16;
+    const numPoints = 8;
+    const outerRadius = 12;
+    const innerRadius = 6;
+
+    physicalGraphics.beginPath();
+    for (let i = 0; i < numPoints * 2; i++) {
+      const angle = (i * Math.PI) / numPoints;
+      const radius = i % 2 === 0 ? outerRadius : innerRadius;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+
+      if (i === 0) {
+        physicalGraphics.moveTo(x, y);
+      } else {
+        physicalGraphics.lineTo(x, y);
+      }
+    }
+    physicalGraphics.closePath();
+    physicalGraphics.fillPath();
+
+    physicalGraphics.generateTexture('hit-effect-physical', 32, 32);
+    physicalGraphics.destroy();
+
+    // Magic hit effect - circular rings
+    const magicGraphics = this.make.graphics({ x: 0, y: 0 });
+
+    magicGraphics.lineStyle(3, 0x88ccff, 1);
+    magicGraphics.strokeCircle(16, 16, 12);
+
+    magicGraphics.lineStyle(2, 0xccffff, 1);
+    magicGraphics.strokeCircle(16, 16, 8);
+
+    magicGraphics.fillStyle(0xffffff, 1);
+    magicGraphics.fillCircle(16, 16, 3);
+
+    magicGraphics.generateTexture('hit-effect-magic', 32, 32);
+    magicGraphics.destroy();
+
+    // Create animations
+    this.anims.create({
+      key: 'hit-physical',
+      frames: [{ key: 'hit-effect-physical', frame: 0 }],
+      frameRate: 20,
+      repeat: 0
+    });
+
+    this.anims.create({
+      key: 'hit-magic',
+      frames: [{ key: 'hit-effect-magic', frame: 0 }],
+      frameRate: 20,
+      repeat: 0
     });
   }
 }

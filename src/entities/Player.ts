@@ -1,14 +1,17 @@
 import Phaser from 'phaser';
-import { PLAYER, PHYSICS } from '../config/constants';
+import { PLAYER, PHYSICS, COMBAT, INPUT } from '../config/constants';
 import type { PlayerState } from '../config/constants';
 import { StateMachine } from '../components/StateMachine';
 import { Ladder } from './Ladder';
+import { PLAYER_BASIC_COMBO, PLAYER_AERIAL_ATTACK } from '../combat/AttackData';
+import type { AttackData } from '../combat/AttackData';
 
 /**
  * Player entity with state machine, animations, and climbing support
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private attackKey!: Phaser.Input.Keyboard.Key;
   private stateMachine: StateMachine;
   private currentState: PlayerState = 'IDLE';
 
@@ -22,6 +25,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // Climbing
   private currentLadder: Ladder | null = null;
   private nearbyLadders: Set<Ladder> = new Set();
+
+  // Attack system
+  private currentComboIndex: number = 0;
+  private attackFrameTimer: number = 0;
+  private attackPhase: 'startup' | 'active' | 'recovery' | null = null;
+  private comboResetTimer: number = 0;
+  private canQueueCombo: boolean = false;
+  private comboQueued: boolean = false;
+  private currentAttackData: AttackData | null = null;
+  public activeHitbox: Phaser.Geom.Rectangle | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -41,6 +54,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Input
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
+      this.attackKey = scene.input.keyboard.addKey(INPUT.ATTACK);
     }
 
     // State machine
@@ -49,7 +63,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.stateMachine.setState('IDLE');
   }
 
-  update(time: number, _delta: number): void {
+  update(time: number, delta: number): void {
     const body = this.body as Phaser.Physics.Arcade.Body;
     const onGround = body.blocked.down || body.touching.down;
 
@@ -60,6 +74,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.isJumping = false;
     }
 
+    // Update combo reset timer
+    this.updateComboTimer(delta);
+
+    // Check for attack input
+    this.handleAttackInput();
+
+    // Update attack frames
+    this.updateAttackFrames(delta);
+
     // Update state machine
     this.stateMachine.update();
 
@@ -68,6 +91,142 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Update animation based on state
     this.updateAnimation(onGround);
+  }
+
+  // === ATTACK METHODS ===
+
+  private handleAttackInput(): void {
+    if (!this.attackKey || !Phaser.Input.Keyboard.JustDown(this.attackKey)) {
+      return;
+    }
+
+    // Cannot attack while climbing
+    if (this.isClimbing()) {
+      return;
+    }
+
+    // If already attacking, try to queue next combo
+    if (this.currentState === 'ATTACK') {
+      if (this.canQueueCombo && !this.comboQueued) {
+        this.comboQueued = true;
+      }
+      return;
+    }
+
+    // Start new attack
+    this.startAttack();
+  }
+
+  private startAttack(): void {
+    const isAerial = !this.isOnGround();
+
+    if (isAerial) {
+      this.currentAttackData = PLAYER_AERIAL_ATTACK;
+      this.currentComboIndex = 0;
+    } else {
+      this.currentAttackData = PLAYER_BASIC_COMBO[this.currentComboIndex];
+    }
+
+    this.currentState = 'ATTACK';
+    this.attackPhase = 'startup';
+    this.attackFrameTimer = 0;
+    this.canQueueCombo = false;
+    this.comboQueued = false;
+    this.activeHitbox = null;
+
+    // Stop horizontal movement
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    body.setVelocityX(0);
+
+    // Play attack animation
+    this.play(this.currentAttackData.animation, true);
+
+    // Reset combo timer
+    this.comboResetTimer = COMBAT.COMBO_RESET_TIME;
+  }
+
+  private updateAttackFrames(delta: number): void {
+    if (this.currentState !== 'ATTACK' || !this.currentAttackData) {
+      return;
+    }
+
+    this.attackFrameTimer += delta;
+    const frameData = this.currentAttackData.frameData;
+    const frameTime = COMBAT.FRAME_TIME;
+
+    if (this.attackPhase === 'startup') {
+      if (this.attackFrameTimer >= frameData.startup * frameTime) {
+        this.attackPhase = 'active';
+        this.attackFrameTimer = 0;
+        this.createHitbox();
+      }
+    } else if (this.attackPhase === 'active') {
+      if (this.attackFrameTimer >= frameData.active * frameTime) {
+        this.attackPhase = 'recovery';
+        this.attackFrameTimer = 0;
+        this.activeHitbox = null;
+      }
+    } else if (this.attackPhase === 'recovery') {
+      const comboWindowStart = (frameData.recovery - this.currentAttackData.comboWindow) * frameTime;
+
+      if (this.attackFrameTimer >= comboWindowStart && this.currentAttackData.comboWindow > 0) {
+        this.canQueueCombo = true;
+      }
+
+      if (this.attackFrameTimer >= frameData.recovery * frameTime) {
+        this.endAttack();
+      }
+    }
+  }
+
+  private createHitbox(): void {
+    if (!this.currentAttackData) return;
+
+    const hitboxData = this.currentAttackData.hitbox;
+    const direction = this.flipX ? -1 : 1;
+
+    const hitboxX = this.x + (hitboxData.offset.x * direction);
+    const hitboxY = this.y + hitboxData.offset.y;
+
+    this.activeHitbox = new Phaser.Geom.Rectangle(
+      hitboxX - hitboxData.size.width / 2,
+      hitboxY - hitboxData.size.height / 2,
+      hitboxData.size.width,
+      hitboxData.size.height
+    );
+  }
+
+  private endAttack(): void {
+    if (this.comboQueued && this.currentComboIndex < COMBAT.MAX_COMBO_COUNT - 1) {
+      this.currentComboIndex++;
+      this.startAttack();
+    } else {
+      this.currentState = 'IDLE';
+      this.attackPhase = null;
+      this.currentAttackData = null;
+      this.activeHitbox = null;
+      this.canQueueCombo = false;
+      this.comboQueued = false;
+      this.stateMachine.setState('IDLE');
+    }
+  }
+
+  private updateComboTimer(delta: number): void {
+    if (this.comboResetTimer > 0) {
+      this.comboResetTimer -= delta;
+
+      if (this.comboResetTimer <= 0) {
+        this.currentComboIndex = 0;
+      }
+    }
+  }
+
+  public isAttacking(): boolean {
+    return this.currentState === 'ATTACK';
+  }
+
+  public getAttackData(): AttackData | null {
+    return this.currentAttackData;
   }
 
   // === LADDER METHODS ===

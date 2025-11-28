@@ -75,3 +75,46 @@ export type PlayerState =
   | 'CLIMB_IDLE'
   | 'CLIMB_UP'
   | 'CLIMB_DOWN';
+
+// Combat constants
+export const COMBAT = {
+  // Frame timing (at 60fps)
+  FRAME_TIME: 16.67,
+
+  // Invincibility frames after taking damage
+  INVINCIBILITY_FRAMES: 60,
+
+  // Hitbox pool size
+  HITBOX_POOL_SIZE: 20,
+
+  // Combo system
+  MAX_COMBO_COUNT: 3,
+  COMBO_RESET_TIME: 1000,
+
+  // Default stat values
+  DEFAULT_STATS: {
+    STR: 10,
+    DEX: 10,
+    INT: 10,
+    LUK: 10,
+    ATK: 20,
+    MATK: 20,
+    DEF: 10,
+    critChance: 0.05,
+    critMultiplier: 1.5,
+  },
+
+  // Damage variance range
+  DAMAGE_VARIANCE: {
+    MIN: 0.85,
+    MAX: 1.0,
+  },
+
+  // Defense formula constant
+  DEF_CONSTANT: 100,
+} as const;
+
+// Input keys
+export const INPUT = {
+  ATTACK: 'Z',
+} as const;
