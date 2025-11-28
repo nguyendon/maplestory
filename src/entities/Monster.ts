@@ -336,11 +336,13 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     body.setEnable(true);
     body.setVelocity(0, 0);
 
-    // Recreate hurtbox
+    // Reset hurtbox instead of recreating (keeps CombatManager registration)
     if (this.hurtbox) {
-      this.hurtbox.destroy();
+      this.hurtbox.setPosition(this.x, this.y);
+      this.hurtbox.reset();
+    } else {
+      this.createHurtbox();
     }
-    this.createHurtbox();
   }
 
   destroy(fromScene?: boolean): void {

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
 import { GameScene } from '../scenes/GameScene';
+import UIScene from '../scenes/UIScene';
 import { GAME_WIDTH, GAME_HEIGHT } from './constants';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
@@ -13,10 +14,10 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     default: 'arcade',
     arcade: {
       gravity: { x: 0, y: 800 },
-      debug: true, // Set to false in production
+      debug: false, // Set to true for debugging
     },
   },
-  scene: [BootScene, GameScene],
+  scene: [BootScene, GameScene, UIScene],
   pixelArt: true,
   roundPixels: true,
 };

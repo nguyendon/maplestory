@@ -63,4 +63,9 @@ export class Hurtbox extends Phaser.GameObjects.Zone {
       this.onHit(damage, knockback, isCritical);
     }
   }
+
+  public reset(): void {
+    this.invincibilityFrames = 0;
+    this.maxInvincibilityFrames = 0;
+  }
 }

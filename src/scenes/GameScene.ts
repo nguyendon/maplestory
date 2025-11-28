@@ -7,6 +7,9 @@ import { CombatManager } from '../combat/CombatManager';
 import { EffectsManager } from '../effects/EffectsManager';
 import { HitEffectType } from '../effects/HitEffect';
 import { getMonsterDefinition } from '../config/MonsterData';
+import { PlayerStats } from '../systems/CharacterStats';
+import { Inventory } from '../systems/Inventory';
+import { getItem } from '../systems/ItemData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -17,6 +20,11 @@ export class GameScene extends Phaser.Scene {
   private playerPlatformCollider!: Phaser.Physics.Arcade.Collider;
   private combatManager!: CombatManager;
   private effectsManager!: EffectsManager;
+  private hitMonstersThisAttack: Set<Monster> = new Set();
+
+  // RPG Systems
+  private playerStats!: PlayerStats;
+  private inventory!: Inventory;
 
   constructor() {
     super({ key: SCENES.GAME });
@@ -35,6 +43,13 @@ export class GameScene extends Phaser.Scene {
     // Create player
     this.player = new Player(this, 100, 450);
 
+    // Initialize RPG systems
+    this.playerStats = new PlayerStats(this);
+    this.inventory = new Inventory(24);
+
+    // Set up stat events for UI
+    this.setupStatsEvents();
+
     // Set up collisions - store reference so we can disable during climbing
     this.playerPlatformCollider = this.physics.add.collider(this.player, this.platforms);
 
@@ -49,8 +64,8 @@ export class GameScene extends Phaser.Scene {
       );
     });
 
-    // Debug text
-    this.debugText = this.add.text(10, 10, '', {
+    // Debug text (moved to bottom-right to not overlap HUD)
+    this.debugText = this.add.text(590, 10, '', {
       font: '14px monospace',
       color: '#ffffff',
       backgroundColor: '#00000080',
@@ -76,6 +91,60 @@ export class GameScene extends Phaser.Scene {
     this.events.on('combat:hit', this.onCombatHit, this);
     this.events.on('monster:damaged', this.onMonsterDamaged, this);
     this.events.on('monster:death', this.onMonsterDeath, this);
+
+    // Launch UI Scene
+    this.scene.launch('UIScene');
+
+    // Send initial stats to UI
+    this.time.delayedCall(100, () => {
+      this.emitPlayerStats();
+    });
+  }
+
+  private setupStatsEvents(): void {
+    // Forward PlayerStats events to scene events for UI
+    this.playerStats.on('hpChanged', (current: number, max: number) => {
+      this.events.emit('player:hp-changed', { current, max });
+    });
+
+    this.playerStats.on('mpChanged', (current: number, max: number) => {
+      this.events.emit('player:mp-changed', { current, max });
+    });
+
+    this.playerStats.on('expGained', () => {
+      this.emitExpUpdate();
+    });
+
+    this.playerStats.on('levelUp', (data: { newLevel: number }) => {
+      this.events.emit('player:level-up', data);
+      this.emitExpUpdate();
+      this.emitPlayerStats();
+    });
+  }
+
+  private emitPlayerStats(): void {
+    this.events.emit('player:hp-changed', {
+      current: this.playerStats.currentHP,
+      max: this.playerStats.getMaxHP()
+    });
+    this.events.emit('player:mp-changed', {
+      current: this.playerStats.currentMP,
+      max: this.playerStats.getMaxMP()
+    });
+    this.emitExpUpdate();
+  }
+
+  private emitExpUpdate(): void {
+    const currentLevelExp = PlayerStats.getExpForLevel(this.playerStats.level);
+    const nextLevelExp = this.playerStats.getExpToNextLevel();
+    const expInLevel = this.playerStats.exp - currentLevelExp;
+    const expNeeded = nextLevelExp - currentLevelExp;
+
+    this.events.emit('player:exp-changed', {
+      current: expInLevel,
+      max: expNeeded,
+      level: this.playerStats.level
+    });
   }
 
   private createMonsters(): void {
@@ -119,8 +188,48 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onMonsterDeath(data: { monster: Monster; exp: number; x: number; y: number }): void {
-    // Show exp gain (future: add to player)
-    console.log(`+${data.exp} EXP`);
+    // Give EXP to player
+    const levelsGained = this.playerStats.gainExp(data.exp);
+
+    // Show EXP gain text
+    this.effectsManager.showDamage(data.x, data.y - 40, data.exp, false);
+
+    // Log level up
+    if (levelsGained > 0) {
+      console.log(`Level Up! Now level ${this.playerStats.level}`);
+    }
+
+    // Handle item drops
+    this.handleMonsterDrops(data.monster, data.x, data.y);
+  }
+
+  private handleMonsterDrops(monster: Monster, _x: number, _y: number): void {
+    const definition = monster['definition'];
+    if (!definition) return;
+
+    // Meso drop
+    const [minMeso, maxMeso] = definition.mesoDrop;
+    const mesoAmount = Math.floor(Math.random() * (maxMeso - minMeso + 1)) + minMeso;
+    if (mesoAmount > 0) {
+      this.inventory.addMesos(mesoAmount);
+      // Could spawn visual meso drop here
+    }
+
+    // Item drops
+    if (definition.itemDrops) {
+      definition.itemDrops.forEach((drop: { itemId: string; chance: number; minQuantity: number; maxQuantity: number }) => {
+        if (Math.random() < drop.chance) {
+          const item = getItem(drop.itemId);
+          if (item) {
+            const quantity = Math.floor(Math.random() * (drop.maxQuantity - drop.minQuantity + 1)) + drop.minQuantity;
+            const overflow = this.inventory.addItem(item, quantity);
+            if (overflow === 0) {
+              console.log(`Obtained: ${item.name} x${quantity}`);
+            }
+          }
+        }
+      });
+    }
   }
 
   update(time: number, delta: number): void {
@@ -160,18 +269,21 @@ export class GameScene extends Phaser.Scene {
     this.handlePlayerAttack();
 
     // Update debug info
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
     this.debugText.setText([
-      `State: ${this.player.getCurrentState()}`,
-      `Position: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})`,
-      `Velocity: (${Math.round(body.velocity.x)}, ${Math.round(body.velocity.y)})`,
+      `Lv.${this.playerStats.level} | EXP: ${this.playerStats.exp}`,
+      `Mesos: ${this.inventory.getMesos()}`,
       `Monsters: ${this.monsters.filter(m => !m['isDead']).length}/${this.monsters.length}`,
     ]);
   }
 
   private handlePlayerAttack(): void {
     const hitbox = this.player.activeHitbox;
-    if (!hitbox) return;
+
+    // Clear hit tracking when attack ends
+    if (!hitbox) {
+      this.hitMonstersThisAttack.clear();
+      return;
+    }
 
     const attackData = this.player.getAttackData();
     if (!attackData) return;
@@ -180,12 +292,18 @@ export class GameScene extends Phaser.Scene {
     this.monsters.forEach(monster => {
       if (monster['isDead']) return;
 
+      // Skip if already hit this monster during this attack
+      if (this.hitMonstersThisAttack.has(monster)) return;
+
       const hurtbox = monster.getHurtbox();
       if (hurtbox.isInvincible()) return;
 
       // Check overlap
       const monsterBounds = hurtbox.getHurtboxBounds();
       if (Phaser.Geom.Rectangle.Overlaps(hitbox, monsterBounds)) {
+        // Track this monster as hit
+        this.hitMonstersThisAttack.add(monster);
+
         // Calculate damage
         const baseDamage = attackData.damage;
         const variance = 0.9 + Math.random() * 0.2;
