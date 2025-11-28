@@ -8,6 +8,7 @@ export class GameScene extends Phaser.Scene {
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private ladders: Ladder[] = [];
   private debugText!: Phaser.GameObjects.Text;
+  private playerPlatformCollider!: Phaser.Physics.Arcade.Collider;
 
   constructor() {
     super({ key: SCENES.GAME });
@@ -26,8 +27,8 @@ export class GameScene extends Phaser.Scene {
     // Create player
     this.player = new Player(this, 100, 450);
 
-    // Set up collisions
-    this.physics.add.collider(this.player, this.platforms);
+    // Set up collisions - store reference so we can disable during climbing
+    this.playerPlatformCollider = this.physics.add.collider(this.player, this.platforms);
 
     // Set up ladder overlaps
     this.ladders.forEach(ladder => {
@@ -59,6 +60,9 @@ export class GameScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     this.player.update(time, delta);
+
+    // Disable platform collision while climbing so player can pass through
+    this.playerPlatformCollider.active = !this.player.isClimbing();
 
     // Check if player left ladder zones
     this.ladders.forEach(ladder => {
@@ -103,54 +107,57 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createLadders(): void {
-    // Ladder from ground to first platform (left)
+    // Ground (y=568) to left platform (y=450)
+    // Ladder should go from ground level to ABOVE platform (so player lands on it)
+    // Top of ladder at y=420 (above platform), bottom at y=550 (above ground)
     this.ladders.push(new Ladder({
       scene: this,
       x: 150,
-      y: 509,
-      height: 118,
+      y: 485,        // Center of ladder
+      height: 130,   // From y=420 to y=550
       type: 'ladder',
     }));
 
-    // Rope from ground to first platform (right)
+    // Ground to right platform (y=450)
     this.ladders.push(new Ladder({
       scene: this,
       x: 650,
-      y: 509,
-      height: 118,
+      y: 485,
+      height: 130,
       type: 'rope',
     }));
 
-    // Ladder to middle platform
+    // Left platform (y=450) to upper-left platform (y=280)
     this.ladders.push(new Ladder({
       scene: this,
-      x: 400,
-      y: 415,
-      height: 70,
+      x: 200,
+      y: 365,        // Center between platforms
+      height: 170,   // From y=250 to y=420
       type: 'ladder',
     }));
 
-    // Ladders to upper platforms
+    // Right platform (y=450) to upper-right platform (y=280)
     this.ladders.push(new Ladder({
       scene: this,
-      x: 250,
-      y: 330,
-      height: 100,
-      type: 'ladder',
-    }));
-
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 550,
-      y: 330,
-      height: 100,
+      x: 600,
+      y: 365,
+      height: 170,
       type: 'rope',
     }));
 
-    // Ladder to top platform
+    // Middle platform (y=380) to top platform (y=180)
     this.ladders.push(new Ladder({
       scene: this,
       x: 400,
+      y: 280,
+      height: 200,   // From y=150 to y=350
+      type: 'ladder',
+    }));
+
+    // Upper platforms to top
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 300,
       y: 230,
       height: 100,
       type: 'ladder',
