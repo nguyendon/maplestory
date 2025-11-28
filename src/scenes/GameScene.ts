@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { SCENES, GAME_WIDTH } from '../config/constants';
 import { Player } from '../entities/Player';
+import { Ladder } from '../entities/Ladder';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
+  private ladders: Ladder[] = [];
   private debugText!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -12,20 +14,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Create background first
+    this.createBackground();
+
     // Create platforms
-    this.platforms = this.physics.add.staticGroup();
+    this.createPlatforms();
 
-    // Ground
-    const ground = this.platforms.create(400, 568, 'ground') as Phaser.Physics.Arcade.Sprite;
-    ground.setScale(1).refreshBody();
-
-    // Floating platforms (MapleStory style layout)
-    this.platforms.create(600, 450, 'platform');
-    this.platforms.create(50, 380, 'platform');
-    this.platforms.create(400, 320, 'platform');
-    this.platforms.create(750, 250, 'platform');
-    this.platforms.create(200, 200, 'platform');
-    this.platforms.create(500, 150, 'platform');
+    // Create ladders
+    this.createLadders();
 
     // Create player
     this.player = new Player(this, 100, 450);
@@ -33,8 +29,16 @@ export class GameScene extends Phaser.Scene {
     // Set up collisions
     this.physics.add.collider(this.player, this.platforms);
 
-    // Add some visual flair - simple parallax background
-    this.createBackground();
+    // Set up ladder overlaps
+    this.ladders.forEach(ladder => {
+      this.physics.add.overlap(
+        this.player,
+        ladder,
+        () => this.player.addNearbyLadder(ladder),
+        undefined,
+        this
+      );
+    });
 
     // Debug text
     this.debugText = this.add.text(10, 10, '', {
@@ -45,7 +49,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Instructions
-    this.add.text(10, 560, 'Arrow keys to move, Space to jump (double jump enabled!)', {
+    this.add.text(10, 560, 'Arrows: Move | Space: Jump (double jump!) | Up near ladder: Climb', {
       font: '12px monospace',
       color: '#ffffff',
       backgroundColor: '#00000080',
@@ -53,20 +57,107 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  update(): void {
-    this.player.update();
+  update(time: number, delta: number): void {
+    this.player.update(time, delta);
+
+    // Check if player left ladder zones
+    this.ladders.forEach(ladder => {
+      const ladderBody = ladder.body as Phaser.Physics.Arcade.StaticBody;
+      const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
+
+      // Simple distance check for ladder overlap
+      const dx = Math.abs(this.player.x - ladder.x);
+      const dy = Math.abs(this.player.y - ladder.y);
+      const overlapping = dx < (playerBody.width / 2 + ladderBody.width / 2) &&
+                          dy < (playerBody.height / 2 + ladderBody.height / 2);
+
+      if (!overlapping) {
+        this.player.removeNearbyLadder(ladder);
+      }
+    });
 
     // Update debug info
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     this.debugText.setText([
+      `State: ${this.player.getCurrentState()}`,
       `Position: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})`,
       `Velocity: (${Math.round(body.velocity.x)}, ${Math.round(body.velocity.y)})`,
-      `On Ground: ${body.blocked.down || body.touching.down}`,
+      `Climbing: ${this.player.isClimbing()}`,
     ]);
   }
 
+  private createPlatforms(): void {
+    this.platforms = this.physics.add.staticGroup();
+
+    // Ground
+    const ground = this.platforms.create(400, 568, 'ground') as Phaser.Physics.Arcade.Sprite;
+    ground.setScale(1).refreshBody();
+
+    // Floating platforms (MapleStory style layout)
+    this.platforms.create(150, 450, 'platform');
+    this.platforms.create(400, 380, 'platform');
+    this.platforms.create(650, 450, 'platform');
+    this.platforms.create(250, 280, 'platform');
+    this.platforms.create(550, 280, 'platform');
+    this.platforms.create(400, 180, 'platform');
+  }
+
+  private createLadders(): void {
+    // Ladder from ground to first platform (left)
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 150,
+      y: 509,
+      height: 118,
+      type: 'ladder',
+    }));
+
+    // Rope from ground to first platform (right)
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 650,
+      y: 509,
+      height: 118,
+      type: 'rope',
+    }));
+
+    // Ladder to middle platform
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 400,
+      y: 415,
+      height: 70,
+      type: 'ladder',
+    }));
+
+    // Ladders to upper platforms
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 250,
+      y: 330,
+      height: 100,
+      type: 'ladder',
+    }));
+
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 550,
+      y: 330,
+      height: 100,
+      type: 'rope',
+    }));
+
+    // Ladder to top platform
+    this.ladders.push(new Ladder({
+      scene: this,
+      x: 400,
+      y: 230,
+      height: 100,
+      type: 'ladder',
+    }));
+  }
+
   private createBackground(): void {
-    // Simple gradient-like background using rectangles
     const graphics = this.add.graphics();
 
     // Sky gradient (darker at top, lighter at bottom)
@@ -75,16 +166,15 @@ export class GameScene extends Phaser.Scene {
     graphics.fillStyle(0x87ceeb, 1);
     graphics.fillRect(0, 200, GAME_WIDTH, 200);
     graphics.fillStyle(0xb0e0e6, 1);
-    graphics.fillRect(0, 400, GAME_WIDTH, 136);
+    graphics.fillRect(0, 400, GAME_WIDTH, 200);
 
-    // Some decorative clouds
+    // Decorative clouds
     graphics.fillStyle(0xffffff, 0.8);
     this.drawCloud(graphics, 100, 80, 60);
     this.drawCloud(graphics, 300, 120, 80);
     this.drawCloud(graphics, 550, 60, 70);
     this.drawCloud(graphics, 700, 140, 50);
 
-    // Send background to back
     graphics.setDepth(-1);
   }
 
