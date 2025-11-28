@@ -3,6 +3,8 @@ import { SCENES, GAME_WIDTH } from '../config/constants';
 import { Player } from '../entities/Player';
 import { Ladder } from '../entities/Ladder';
 import { Monster } from '../entities/Monster';
+import { Portal } from '../entities/Portal';
+import { NPC } from '../entities/NPC';
 import { CombatManager } from '../combat/CombatManager';
 import { EffectsManager } from '../effects/EffectsManager';
 import { HitEffectType } from '../effects/HitEffect';
@@ -10,12 +12,16 @@ import { getMonsterDefinition } from '../config/MonsterData';
 import { PlayerStats } from '../systems/CharacterStats';
 import { Inventory } from '../systems/Inventory';
 import { getItem } from '../systems/ItemData';
+import { DialogueBox } from '../ui/DialogueBox';
+import { getDialogue } from '../config/NPCData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private ladders: Ladder[] = [];
   private monsters: Monster[] = [];
+  private portals: Portal[] = [];
+  private npcs: NPC[] = [];
   private debugText!: Phaser.GameObjects.Text;
   private playerPlatformCollider!: Phaser.Physics.Arcade.Collider;
   private combatManager!: CombatManager;
@@ -25,6 +31,11 @@ export class GameScene extends Phaser.Scene {
   // RPG Systems
   private playerStats!: PlayerStats;
   private inventory!: Inventory;
+
+  // UI Systems
+  private dialogueBox!: DialogueBox;
+  private nearbyNPC: NPC | null = null;
+  private nearbyPortal: Portal | null = null;
 
   constructor() {
     super({ key: SCENES.GAME });
@@ -73,8 +84,8 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Instructions
-    this.add.text(10, 560, 'Arrows: Move | Space: Jump | Z: Attack | Up: Climb', {
-      font: '12px monospace',
+    this.add.text(10, 560, 'Arrows: Move | Space: Jump | Z: Attack | Up: Climb/Portal | N: Talk to NPC', {
+      font: '11px monospace',
       color: '#ffffff',
       backgroundColor: '#00000080',
       padding: { x: 5, y: 3 },
@@ -86,6 +97,18 @@ export class GameScene extends Phaser.Scene {
 
     // Create monsters
     this.createMonsters();
+
+    // Create portals
+    this.createPortals();
+
+    // Create NPCs
+    this.createNPCs();
+
+    // Create dialogue box (UI overlay)
+    this.dialogueBox = new DialogueBox(this);
+
+    // Set up keyboard for dialogue/portal interaction
+    this.setupInteractionKeys();
 
     // Listen for combat events
     this.events.on('combat:hit', this.onCombatHit, this);
@@ -274,6 +297,10 @@ export class GameScene extends Phaser.Scene {
     // Handle player attack hitbox
     this.handlePlayerAttack();
 
+    // Check proximity to NPCs and portals
+    this.checkNPCProximity();
+    this.checkPortalProximity();
+
     // Update debug info
     this.debugText.setText([
       `Lv.${this.playerStats.level} | EXP: ${this.playerStats.exp}`,
@@ -417,6 +444,143 @@ export class GameScene extends Phaser.Scene {
       height: 120,
       type: 'ladder',
     }));
+  }
+
+  private createPortals(): void {
+    // Portal at top platform leading to "next map"
+    const portal = new Portal({
+      scene: this,
+      x: 400,
+      y: 150,
+      width: 50,
+      height: 70,
+      targetMap: 'map2',
+      targetX: 100,
+      targetY: 450
+    });
+    this.portals.push(portal);
+
+    // Portal at right side of ground
+    const portal2 = new Portal({
+      scene: this,
+      x: 750,
+      y: 530,
+      width: 40,
+      height: 60,
+      targetMap: 'map2',
+      targetX: 50,
+      targetY: 450
+    });
+    this.portals.push(portal2);
+  }
+
+  private createNPCs(): void {
+    // Guide NPC near spawn
+    const guideNPC = new NPC({
+      scene: this,
+      x: 180,
+      y: 530,
+      name: 'Maple Guide',
+      dialogueKey: 'guide_intro'
+    });
+    this.npcs.push(guideNPC);
+
+    // Shop NPC on middle platform
+    const shopNPC = new NPC({
+      scene: this,
+      x: 450,
+      y: 350,
+      name: 'Shopkeeper',
+      dialogueKey: 'shop_greeting'
+    });
+    this.npcs.push(shopNPC);
+  }
+
+  private setupInteractionKeys(): void {
+    // NPC interaction key (N key)
+    this.input.keyboard?.on('keydown-N', () => {
+      if (this.dialogueBox.isOpen) return;
+
+      if (this.nearbyNPC) {
+        const dialogue = getDialogue(this.nearbyNPC.dialogueKey);
+        if (dialogue) {
+          this.dialogueBox.openDialogue(dialogue);
+        }
+      }
+    });
+
+    // Portal interaction key (UP arrow when near portal)
+    this.input.keyboard?.on('keydown-UP', () => {
+      if (this.dialogueBox.isOpen) return;
+
+      if (this.nearbyPortal && this.nearbyPortal.isActive) {
+        this.usePortal(this.nearbyPortal);
+      }
+    });
+
+    // Dialogue controls
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      if (this.dialogueBox.isOpen) {
+        this.dialogueBox.handleInput('SPACE');
+      }
+    });
+
+    this.input.keyboard?.on('keydown-ENTER', () => {
+      if (this.dialogueBox.isOpen) {
+        this.dialogueBox.handleInput('ENTER');
+      }
+    });
+
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.dialogueBox.isOpen) {
+        this.dialogueBox.handleInput('ESC');
+      }
+    });
+  }
+
+  private usePortal(portal: Portal): void {
+    // For now, just show a message since we only have one map
+    console.log(`Using portal to ${portal.targetMap} at (${portal.targetX}, ${portal.targetY})`);
+
+    // Flash effect
+    this.cameras.main.flash(300, 255, 255, 255);
+
+    // Teleport player (within same map for demo)
+    this.time.delayedCall(150, () => {
+      // In a full implementation, this would transition to another scene
+      // For now, just move player to demonstrate the portal works
+      this.player.setPosition(portal.targetX, portal.targetY);
+    });
+  }
+
+  private checkNPCProximity(): void {
+    this.nearbyNPC = null;
+
+    for (const npc of this.npcs) {
+      const interactionBounds = npc.getInteractionBounds();
+      const playerBounds = this.player.getBounds();
+
+      if (Phaser.Geom.Rectangle.Overlaps(interactionBounds, playerBounds)) {
+        this.nearbyNPC = npc;
+        npc.showInteractionPrompt();
+      } else {
+        npc.hideInteractionPrompt();
+      }
+    }
+  }
+
+  private checkPortalProximity(): void {
+    this.nearbyPortal = null;
+
+    for (const portal of this.portals) {
+      const portalBounds = portal.getBounds();
+      const playerBounds = this.player.getBounds();
+
+      if (Phaser.Geom.Rectangle.Overlaps(portalBounds, playerBounds)) {
+        this.nearbyPortal = portal;
+        break;
+      }
+    }
   }
 
   private createBackground(): void {
