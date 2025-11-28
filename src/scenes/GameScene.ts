@@ -140,6 +140,8 @@ export class GameScene extends Phaser.Scene {
     const expInLevel = this.playerStats.exp - currentLevelExp;
     const expNeeded = nextLevelExp - currentLevelExp;
 
+    console.log(`EXP Update: ${expInLevel}/${expNeeded} (total: ${this.playerStats.exp}, need: ${nextLevelExp})`);
+
     this.events.emit('player:exp-changed', {
       current: expInLevel,
       max: expNeeded,
@@ -194,9 +196,13 @@ export class GameScene extends Phaser.Scene {
     // Show EXP gain text
     this.effectsManager.showDamage(data.x, data.y - 40, data.exp, false);
 
-    // Log level up
+    // Force UI update
+    this.emitExpUpdate();
+
+    // Handle level up
     if (levelsGained > 0) {
-      console.log(`Level Up! Now level ${this.playerStats.level}`);
+      this.events.emit('player:level-up', { newLevel: this.playerStats.level });
+      this.emitPlayerStats();
     }
 
     // Handle item drops

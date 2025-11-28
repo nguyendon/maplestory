@@ -73,7 +73,7 @@ export default class UIScene extends Phaser.Scene {
     );
 
     // Set up event listeners
-    const gameScene = this.scene.get('Game');
+    const gameScene = this.scene.get('GameScene');
     if (gameScene && gameScene.events) {
       gameScene.events.on('player:hp-changed', this.handleHPChanged, this);
       gameScene.events.on('player:mp-changed', this.handleMPChanged, this);
@@ -237,7 +237,7 @@ export default class UIScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    const gameScene = this.scene.get('Game');
+    const gameScene = this.scene.get('GameScene');
     if (gameScene && gameScene.events) {
       gameScene.events.off('player:hp-changed', this.handleHPChanged, this);
       gameScene.events.off('player:mp-changed', this.handleMPChanged, this);

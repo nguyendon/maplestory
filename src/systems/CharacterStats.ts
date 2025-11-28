@@ -92,14 +92,27 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   }
 
   // Experience System
+  // Returns TOTAL exp needed to reach a level (cumulative)
   static getExpForLevel(level: number): number {
     if (level <= 1) return 0;
     if (level > PlayerStats.MAX_LEVEL) return Infinity;
+    // Level 2 needs 100 total, level 3 needs 250 total (100 + 150), etc.
+    let total = 0;
+    for (let i = 1; i < level; i++) {
+      total += Math.floor(100 * Math.pow(1.5, i - 1));
+    }
+    return total;
+  }
+
+  // Returns exp needed for JUST the next level (not cumulative)
+  static getExpRequiredForLevel(level: number): number {
+    if (level <= 1) return 100;
     return Math.floor(100 * Math.pow(1.5, level - 1));
   }
 
   getExpToNextLevel(): number {
     if (this._level >= PlayerStats.MAX_LEVEL) return Infinity;
+    // Total exp needed to reach next level
     return PlayerStats.getExpForLevel(this._level + 1);
   }
 
