@@ -983,33 +983,181 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createBackground(): void {
-    const graphics = this.add.graphics();
+    // Create a beautiful gradient sky
+    const skyCanvas = this.textures.createCanvas('sky-bg', GAME_WIDTH, GAME_HEIGHT);
+    if (skyCanvas) {
+      const ctx = skyCanvas.context;
 
-    // Sky gradient (darker at top, lighter at bottom)
-    const gradientHeight = GAME_HEIGHT / 3;
-    graphics.fillStyle(0x1e90ff, 1);
-    graphics.fillRect(0, 0, GAME_WIDTH, gradientHeight);
-    graphics.fillStyle(0x87ceeb, 1);
-    graphics.fillRect(0, gradientHeight, GAME_WIDTH, gradientHeight);
-    graphics.fillStyle(0xb0e0e6, 1);
-    graphics.fillRect(0, gradientHeight * 2, GAME_WIDTH, gradientHeight);
+      // Gradient sky - sunset/dawn style
+      const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+      gradient.addColorStop(0, '#1a1a2e');      // Deep blue at top
+      gradient.addColorStop(0.3, '#16213e');    // Dark blue
+      gradient.addColorStop(0.5, '#0f3460');    // Medium blue
+      gradient.addColorStop(0.7, '#e94560');    // Pink/orange horizon
+      gradient.addColorStop(0.85, '#ff9a3c');   // Orange
+      gradient.addColorStop(1, '#ffd93d');      // Yellow at bottom
 
-    // Decorative clouds - spread across wider map
-    graphics.fillStyle(0xffffff, 0.8);
-    this.drawCloud(graphics, 100, 80, 60);
-    this.drawCloud(graphics, 350, 120, 80);
-    this.drawCloud(graphics, 600, 60, 70);
-    this.drawCloud(graphics, 850, 140, 50);
-    this.drawCloud(graphics, 1050, 90, 65);
-    this.drawCloud(graphics, 1200, 50, 55);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    graphics.setDepth(-1);
+      // Add stars at the top
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 50; i++) {
+        const starX = Math.random() * GAME_WIDTH;
+        const starY = Math.random() * (GAME_HEIGHT * 0.4);
+        const starSize = Math.random() * 2 + 1;
+        ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+        ctx.beginPath();
+        ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      skyCanvas.refresh();
+    }
+
+    const sky = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'sky-bg');
+    sky.setDepth(-100);
+
+    // Distant mountains (back layer)
+    this.createMountainLayer(-80, 0x2d3436, 0.8);
+
+    // Middle mountains
+    this.createMountainLayer(-60, 0x636e72, 0.6);
+
+    // Front hills
+    this.createHillLayer(-40, 0x74b9ff, 0.4);
+
+    // Clouds layer
+    this.createCloudLayer();
+
+    // Decorative trees in background
+    this.createTreeLayer();
   }
 
-  private drawCloud(graphics: Phaser.GameObjects.Graphics, x: number, y: number, size: number): void {
-    graphics.fillCircle(x, y, size * 0.5);
-    graphics.fillCircle(x + size * 0.4, y - size * 0.1, size * 0.4);
-    graphics.fillCircle(x + size * 0.8, y, size * 0.35);
-    graphics.fillCircle(x + size * 0.3, y + size * 0.2, size * 0.3);
+  private createMountainLayer(depth: number, color: number, heightMultiplier: number): void {
+    const graphics = this.add.graphics();
+    graphics.setDepth(depth);
+
+    const baseY = GAME_HEIGHT * 0.6;
+    const points: { x: number; y: number }[] = [];
+
+    // Generate mountain peaks
+    points.push({ x: 0, y: GAME_HEIGHT });
+
+    for (let x = 0; x <= GAME_WIDTH; x += 50) {
+      const noise = Math.sin(x * 0.01) * 50 + Math.sin(x * 0.02) * 30 + Math.sin(x * 0.005) * 80;
+      const y = baseY - noise * heightMultiplier;
+      points.push({ x, y });
+    }
+
+    points.push({ x: GAME_WIDTH, y: GAME_HEIGHT });
+
+    graphics.fillStyle(color, 0.6);
+    graphics.beginPath();
+    graphics.moveTo(points[0].x, points[0].y);
+    for (const point of points) {
+      graphics.lineTo(point.x, point.y);
+    }
+    graphics.closePath();
+    graphics.fillPath();
+  }
+
+  private createHillLayer(depth: number, color: number, heightMultiplier: number): void {
+    const graphics = this.add.graphics();
+    graphics.setDepth(depth);
+
+    const baseY = GAME_HEIGHT * 0.75;
+
+    graphics.fillStyle(color, 0.3);
+    graphics.beginPath();
+    graphics.moveTo(0, GAME_HEIGHT);
+
+    for (let x = 0; x <= GAME_WIDTH; x += 30) {
+      const noise = Math.sin(x * 0.015) * 40 + Math.sin(x * 0.008) * 60;
+      const y = baseY - noise * heightMultiplier;
+      graphics.lineTo(x, y);
+    }
+
+    graphics.lineTo(GAME_WIDTH, GAME_HEIGHT);
+    graphics.closePath();
+    graphics.fillPath();
+  }
+
+  private createCloudLayer(): void {
+    // Create fluffy clouds
+    const cloudPositions = [
+      { x: 100, y: 80, size: 60 },
+      { x: 300, y: 120, size: 80 },
+      { x: 550, y: 60, size: 70 },
+      { x: 800, y: 100, size: 50 },
+      { x: 1000, y: 70, size: 65 },
+      { x: 1200, y: 130, size: 55 },
+    ];
+
+    cloudPositions.forEach(cloud => {
+      const cloudContainer = this.add.container(cloud.x, cloud.y);
+      cloudContainer.setDepth(-50);
+
+      const graphics = this.add.graphics();
+
+      // Cloud shadow
+      graphics.fillStyle(0xdfe6e9, 0.5);
+      graphics.fillCircle(4, 4, cloud.size * 0.5);
+      graphics.fillCircle(cloud.size * 0.4 + 4, cloud.size * -0.1 + 4, cloud.size * 0.4);
+      graphics.fillCircle(cloud.size * 0.8 + 4, 4, cloud.size * 0.35);
+
+      // Main cloud
+      graphics.fillStyle(0xffffff, 0.9);
+      graphics.fillCircle(0, 0, cloud.size * 0.5);
+      graphics.fillCircle(cloud.size * 0.4, cloud.size * -0.1, cloud.size * 0.4);
+      graphics.fillCircle(cloud.size * 0.8, 0, cloud.size * 0.35);
+      graphics.fillCircle(cloud.size * 0.3, cloud.size * 0.15, cloud.size * 0.3);
+      graphics.fillCircle(cloud.size * 0.6, cloud.size * 0.1, cloud.size * 0.25);
+
+      cloudContainer.add(graphics);
+
+      // Gentle floating animation
+      this.tweens.add({
+        targets: cloudContainer,
+        y: cloud.y - 10,
+        duration: 3000 + Math.random() * 2000,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        repeat: -1,
+      });
+    });
+  }
+
+  private createTreeLayer(): void {
+    const treePositions = [50, 180, 400, 600, 900, 1100, 1250];
+
+    treePositions.forEach(x => {
+      const treeY = GAME_HEIGHT - 90;
+      const graphics = this.add.graphics();
+      graphics.setDepth(-20);
+
+      // Tree trunk
+      graphics.fillStyle(0x5d4037, 1);
+      graphics.fillRect(x - 6, treeY, 12, 30);
+
+      // Tree foliage (layered circles)
+      const foliageColor = 0x27ae60;
+      const foliageDark = 0x1e8449;
+
+      graphics.fillStyle(foliageDark, 0.8);
+      graphics.fillCircle(x, treeY - 15, 25);
+      graphics.fillCircle(x - 15, treeY, 20);
+      graphics.fillCircle(x + 15, treeY, 20);
+
+      graphics.fillStyle(foliageColor, 0.9);
+      graphics.fillCircle(x, treeY - 20, 22);
+      graphics.fillCircle(x - 12, treeY - 5, 18);
+      graphics.fillCircle(x + 12, treeY - 5, 18);
+
+      // Highlight
+      graphics.fillStyle(0x2ecc71, 0.7);
+      graphics.fillCircle(x - 5, treeY - 25, 10);
+    });
   }
 }
