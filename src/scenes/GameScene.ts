@@ -103,9 +103,9 @@ export class GameScene extends Phaser.Scene {
       if (this.equipmentUI) this.equipmentUI.refresh();
     });
 
-    // Set up auto-save every 30 seconds
+    // Set up auto-save every 10 seconds
     this.time.addEvent({
-      delay: 30000,
+      delay: 10000,
       callback: () => this.autoSave(),
       loop: true
     });
@@ -682,6 +682,8 @@ export class GameScene extends Phaser.Scene {
     if (levelsGained > 0) {
       this.events.emit('player:level-up', { newLevel: this.playerStats.level });
       this.emitPlayerStats();
+      // Auto-save on level up
+      this.autoSave();
     }
 
     // Handle item drops
