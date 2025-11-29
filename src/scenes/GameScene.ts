@@ -1246,6 +1246,11 @@ export class GameScene extends Phaser.Scene {
         current: this.playerStats.currentMP,
         max: this.playerStats.getMaxMP()
       });
+
+      // Refresh inventory UI if open
+      if (this.inventoryUI.isOpen) {
+        this.inventoryUI.refresh();
+      }
     } else {
       // Show error message
       this.showPotionMessage(result.message, false);
