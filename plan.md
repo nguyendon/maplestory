@@ -20,60 +20,60 @@ A 2D side-scrolling MMORPG clone inspired by MapleStory, built with modern web t
 ## Development Phases
 
 ### Phase 1: Core Engine (Foundation)
-- [ ] Project setup (Vite + Phaser 3 + TypeScript)
-- [ ] Basic game loop and scene management
+- [x] Project setup (Vite + Phaser 3 + TypeScript)
+- [x] Basic game loop and scene management
 - [ ] Tile-based map rendering system
-- [ ] Camera system with map bounds
-- [ ] Asset loading pipeline (sprites, audio, maps)
-- [ ] Input handling (keyboard + touch support)
+- [x] Camera system with map bounds
+- [x] Asset loading pipeline (sprites, audio, maps)
+- [x] Input handling (keyboard + configurable key bindings)
 
 ### Phase 2: Player Character
-- [ ] Character sprite rendering with layered equipment
-- [ ] Movement physics (walk, run, jump)
-- [ ] Platform collision detection
-- [ ] Ladder/rope climbing mechanics
-- [ ] Character state machine (idle, walk, jump, attack, etc.)
-- [ ] Basic animation system
+- [x] Character sprite rendering with layered equipment
+- [x] Movement physics (walk, run, jump, double jump)
+- [x] Platform collision detection
+- [x] Ladder/rope climbing mechanics
+- [x] Character state machine (idle, walk, jump, fall, attack, climb)
+- [x] Basic animation system
 
 ### Phase 3: Combat System
-- [ ] Hitbox/hurtbox system
-- [ ] Basic attack mechanics
-- [ ] Skill system architecture
-- [ ] Damage calculation formula
-- [ ] Combat effects and particles
-- [ ] Knockback and invincibility frames
+- [x] Hitbox/hurtbox system
+- [x] Basic attack mechanics (combo system)
+- [x] Skill system architecture
+- [x] Damage calculation formula
+- [x] Combat effects and particles (hit effects, damage numbers)
+- [x] Knockback and invincibility frames
 
 ### Phase 4: Monsters & AI
-- [ ] Monster base class
+- [x] Monster base class
 - [ ] Spawn system with respawn timers
-- [ ] Basic AI behaviors (patrol, chase, attack)
-- [ ] Monster stats and loot tables
+- [x] Basic AI behaviors (patrol, chase, attack)
+- [x] Monster stats and loot tables
 - [ ] Boss mechanics (patterns, phases)
 - [ ] Aggro system
 
 ### Phase 5: RPG Systems
-- [ ] Character stats (STR, DEX, INT, LUK, HP, MP)
-- [ ] Experience and leveling
-- [ ] Inventory system
+- [x] Character stats (STR, DEX, INT, LUK, HP, MP)
+- [x] Experience and leveling
+- [x] Inventory system
 - [ ] Equipment system with stat bonuses
-- [ ] Item drops and pickup
+- [x] Item drops and pickup
 - [ ] Consumables (potions, buffs)
 
 ### Phase 6: World & Maps
 - [ ] Map editor integration (Tiled)
-- [ ] Portal system for map transitions
+- [x] Portal system for map transitions
 - [ ] Multiple map zones
-- [ ] Background parallax layers
+- [x] Background parallax layers
 - [ ] Environmental hazards
-- [ ] NPCs and dialogue system
+- [x] NPCs and dialogue system (with choices)
 
 ### Phase 7: Skills & Classes
 - [ ] Skill tree system
 - [ ] Job advancement system
 - [ ] Class-specific skills
-- [ ] Skill effects and animations
-- [ ] Cooldown management
-- [ ] MP/resource costs
+- [x] Skill effects and animations
+- [x] Cooldown management
+- [x] MP/resource costs
 
 ### Phase 8: Multiplayer (Optional)
 - [ ] Server architecture with Colyseus
@@ -342,7 +342,9 @@ maplestory/
 │   ├── main.ts                 # Entry point
 │   ├── config/
 │   │   ├── game.config.ts      # Phaser config
-│   │   └── constants.ts        # Game constants
+│   │   ├── constants.ts        # Game constants
+│   │   ├── MonsterData.ts      # Monster definitions
+│   │   └── NPCData.ts          # NPC & dialogue data
 │   ├── scenes/
 │   │   ├── BootScene.ts        # Asset loading
 │   │   ├── MenuScene.ts        # Main menu
@@ -351,20 +353,34 @@ maplestory/
 │   ├── entities/
 │   │   ├── Player.ts           # Player class
 │   │   ├── Monster.ts          # Base monster
-│   │   └── NPC.ts              # NPC class
+│   │   ├── NPC.ts              # NPC class
+│   │   ├── Ladder.ts           # Ladder/rope climbing
+│   │   └── Portal.ts           # Map portals
+│   ├── combat/
+│   │   ├── CombatManager.ts    # Combat collision detection
+│   │   ├── AttackData.ts       # Attack frame data
+│   │   └── Hurtbox.ts          # Hurtbox component
+│   ├── skills/
+│   │   ├── SkillManager.ts     # Skill execution & cooldowns
+│   │   ├── SkillData.ts        # Skill definitions
+│   │   └── SkillEffects.ts     # Skill visual effects
+│   ├── effects/
+│   │   ├── EffectsManager.ts   # Damage numbers, particles
+│   │   └── HitEffect.ts        # Hit effect animations
 │   ├── systems/
-│   │   ├── CombatSystem.ts     # Combat logic
-│   │   ├── InventorySystem.ts  # Inventory management
-│   │   ├── SkillSystem.ts      # Skill handling
-│   │   └── QuestSystem.ts      # Quest tracking
+│   │   ├── CharacterStats.ts   # Player stats & leveling
+│   │   ├── Inventory.ts        # Inventory management
+│   │   ├── ItemData.ts         # Item definitions
+│   │   └── QuestSystem.ts      # Quest tracking (planned)
 │   ├── components/
-│   │   ├── StateMachine.ts     # FSM for entities
-│   │   ├── Hitbox.ts           # Collision component
-│   │   └── Stats.ts            # RPG stats
+│   │   └── StateMachine.ts     # FSM for entities
 │   ├── ui/
 │   │   ├── HUD.ts              # Health/MP bars
 │   │   ├── Inventory.ts        # Inventory UI
-│   │   └── Dialogue.ts         # Dialogue box
+│   │   ├── DialogueBox.ts      # Dialogue box with choices
+│   │   ├── SkillBar.ts         # Skill hotbar
+│   │   ├── SkillConfigUI.ts    # Skill slot configuration
+│   │   └── KeyboardConfigUI.ts # MapleStory-style key bindings
 │   ├── data/
 │   │   ├── monsters.json       # Monster definitions
 │   │   ├── items.json          # Item database
