@@ -160,8 +160,16 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
 
   protected updateIdle(_delta: number): void {
     this.setVelocityX(0);
+    this.playAnim('idle');
     // Transition to patrol after brief pause
     this.currentState = 'PATROL';
+  }
+
+  protected playAnim(type: string): void {
+    const animKey = `${this.definition.spriteKey}-${type}`;
+    if (this.anims.exists(animKey) && this.anims.currentAnim?.key !== animKey) {
+      this.play(animKey, true);
+    }
   }
 
   protected updatePatrol(delta: number): void {
@@ -179,6 +187,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     // Patrol movement
+    this.playAnim('walk');
     if (this.movingRight) {
       this.setVelocityX(this.speed);
       this.setFlipX(false);
@@ -215,6 +224,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     // Chase target
+    this.playAnim('walk');
     const targetX = (this.target as Phaser.GameObjects.Sprite).x;
     if (targetX > this.x + 5) {
       this.setVelocityX(this.speed * 1.5);
@@ -229,6 +239,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
 
   protected updateAttack(_delta: number): void {
     this.setVelocityX(0);
+    this.playAnim('attack');
 
     // Perform attack
     this.attackCooldown = this.definition.attackCooldown;

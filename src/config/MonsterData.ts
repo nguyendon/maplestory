@@ -30,8 +30,8 @@ export interface MonsterDefinition {
 
 export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
   SLIME: {
-    name: 'Blue Slime',
-    spriteKey: 'monster',
+    name: 'Green Slime',
+    spriteKey: 'slime',
     width: 40,
     height: 40,
     maxHp: 50,
