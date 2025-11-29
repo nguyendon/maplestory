@@ -22,6 +22,7 @@ import { SkillManager } from '../skills/SkillManager';
 import { SkillEffects } from '../skills/SkillEffects';
 import { getSkill } from '../skills/SkillData';
 import type { SkillDefinition } from '../skills/SkillData';
+import { InventoryUI } from '../ui/InventoryUI';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -45,6 +46,7 @@ export class GameScene extends Phaser.Scene {
   private skillBar!: SkillBar;
   private skillConfigUI!: SkillConfigUI;
   private keyboardConfigUI!: KeyboardConfigUI;
+  private inventoryUI!: InventoryUI;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -156,6 +158,27 @@ export class GameScene extends Phaser.Scene {
       this.applyActionBindings();
     });
 
+    // Create inventory UI
+    this.inventoryUI = new InventoryUI(this);
+    this.inventoryUI.setInventory(this.inventory);
+    this.inventoryUI.setOnItemUse((slotIndex) => {
+      const result = this.inventory.useItem(slotIndex, this.playerStats);
+      if (result.success) {
+        this.showPotionEffect(result.effect, result.value);
+        this.inventoryUI.refresh();
+        this.events.emit('player:hp-changed', {
+          current: this.playerStats.currentHP,
+          max: this.playerStats.getMaxHP()
+        });
+        this.events.emit('player:mp-changed', {
+          current: this.playerStats.currentMP,
+          max: this.playerStats.getMaxMP()
+        });
+      } else {
+        this.showPotionMessage(result.message, false);
+      }
+    });
+
     // Set initial skill bindings
     const initialSkillBindings = new Map<string, SkillDefinition>();
     const powerStrikeInit = getSkill('POWER_STRIKE');
@@ -176,6 +199,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('N', ACTIONS.INTERACT);
     initialActionBindings.set('ONE', ACTIONS.HP_POTION);
     initialActionBindings.set('TWO', ACTIONS.MP_POTION);
+    initialActionBindings.set('I', ACTIONS.INVENTORY);
     this.actionBindings = initialActionBindings;
 
     this.keyboardConfigUI.setInitialBindings(initialSkillBindings, initialActionBindings);
@@ -347,6 +371,10 @@ export class GameScene extends Phaser.Scene {
         this.dialogueBox.handleInput('ESC');
         return;
       }
+      if (this.inventoryUI.isOpen) {
+        this.inventoryUI.close();
+        return;
+      }
       if (this.skillConfigUI.isOpen) {
         this.skillConfigUI.close();
         return;
@@ -488,6 +516,9 @@ export class GameScene extends Phaser.Scene {
       case 'MP_POTION':
         this.usePotion('blue_potion');
         break;
+      case 'INVENTORY':
+        this.inventoryUI.toggle();
+        break;
       // JUMP and ATTACK are handled directly by the Player class
     }
   }
@@ -618,6 +649,11 @@ export class GameScene extends Phaser.Scene {
           }
         }
       });
+    }
+
+    // Refresh inventory UI if open
+    if (this.inventoryUI.isOpen) {
+      this.inventoryUI.refresh();
     }
   }
 

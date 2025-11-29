@@ -18,6 +18,7 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   INTERACT: { id: 'INTERACT', name: 'Interact', color: 0xaa8844 },
   HP_POTION: { id: 'HP_POTION', name: 'HP Potion', color: 0xff6b6b },
   MP_POTION: { id: 'MP_POTION', name: 'MP Potion', color: 0x4ecdc4 },
+  INVENTORY: { id: 'INVENTORY', name: 'Inventory', color: 0x8b4513 },
 };
 
 type BindingType = SkillDefinition | ActionDefinition;
