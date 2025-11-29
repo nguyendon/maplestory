@@ -629,6 +629,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  clearNearbyLadders(): void {
+    this.nearbyLadders.clear();
+    if (this.currentLadder) {
+      // Re-enable gravity if we were climbing
+      const body = this.body as Phaser.Physics.Arcade.Body;
+      body.setAllowGravity(true);
+      this.currentLadder = null;
+      // Reset to idle state if we were climbing
+      if (this.isClimbing()) {
+        this.currentState = 'IDLE';
+        this.stateMachine.setState('IDLE');
+      }
+    }
+  }
+
   destroy(fromScene?: boolean): void {
     this.nearbyLadders.clear();
     this.currentLadder = null;

@@ -28,7 +28,7 @@ import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
 import { defaultSaveManager, type SaveData } from '../systems/SaveManager';
-import { getDefaultMap, type MapDefinition } from '../config/MapData';
+import { getDefaultMap, getMap, type MapDefinition } from '../config/MapData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -39,6 +39,8 @@ export class GameScene extends Phaser.Scene {
   private npcs: NPC[] = [];
   private debugText!: Phaser.GameObjects.Text;
   private playerPlatformCollider!: Phaser.Physics.Arcade.Collider;
+  private monsterColliders: Phaser.Physics.Arcade.Collider[] = [];
+  private ladderOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private combatManager!: CombatManager;
   private effectsManager!: EffectsManager;
   private hitMonstersThisAttack: Set<Monster> = new Set();
@@ -124,16 +126,8 @@ export class GameScene extends Phaser.Scene {
     // Set up collisions - store reference so we can disable during climbing
     this.playerPlatformCollider = this.physics.add.collider(this.player, this.platforms);
 
-    // Set up ladder overlaps
-    this.ladders.forEach(ladder => {
-      this.physics.add.overlap(
-        this.player,
-        ladder,
-        () => this.player.addNearbyLadder(ladder),
-        undefined,
-        this
-      );
-    });
+    // Set up ladder overlaps - store references for cleanup
+    this.setupLadderOverlaps();
 
     // Debug text (top-right corner)
     this.debugText = this.add.text(GAME_WIDTH - 10, 10, '', {
@@ -651,8 +645,9 @@ export class GameScene extends Phaser.Scene {
       monster.setTarget(this.player);
       this.monsters.push(monster);
 
-      // Add collision with platforms
-      this.physics.add.collider(monster, this.platforms);
+      // Add collision with platforms - store reference for cleanup
+      const collider = this.physics.add.collider(monster, this.platforms);
+      this.monsterColliders.push(collider);
 
       // Register hurtbox with combat manager
       this.combatManager.registerHurtbox(monster.getHurtbox());
@@ -1025,6 +1020,93 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private setupLadderOverlaps(): void {
+    this.ladders.forEach(ladder => {
+      const overlap = this.physics.add.overlap(
+        this.player,
+        ladder,
+        () => this.player.addNearbyLadder(ladder),
+        undefined,
+        this
+      );
+      this.ladderOverlaps.push(overlap);
+    });
+  }
+
+  /**
+   * Load a new map, cleaning up the old one first
+   */
+  private loadMap(mapId: string, spawnX: number, spawnY: number): void {
+    const newMap = getMap(mapId);
+    if (!newMap) {
+      console.error(`Map not found: ${mapId}`);
+      return;
+    }
+
+    // === CLEANUP PHASE ===
+    // Order matters: destroy colliders FIRST, then game objects
+
+    // 1. Destroy all colliders/overlaps that reference map objects
+    this.playerPlatformCollider.destroy();
+
+    this.monsterColliders.forEach(c => c.destroy());
+    this.monsterColliders = [];
+
+    this.ladderOverlaps.forEach(o => o.destroy());
+    this.ladderOverlaps = [];
+
+    // 2. Clear player's nearby ladders reference
+    this.player.clearNearbyLadders();
+
+    // 3. Destroy all map game objects
+    this.monsters.forEach(m => m.destroy());
+    this.monsters = [];
+
+    this.ladders.forEach(l => l.destroy());
+    this.ladders = [];
+
+    this.portals.forEach(p => p.destroy());
+    this.portals = [];
+
+    this.npcs.forEach(n => n.destroy());
+    this.npcs = [];
+
+    this.droppedItems.forEach(d => d.destroy());
+    this.droppedItems = [];
+
+    // 4. Clear platforms group
+    this.platforms.clear(true, true);
+
+    // 5. Clear combat tracking
+    this.hitMonstersThisAttack.clear();
+    this.hitMonstersThisSkill.clear();
+    this.nearbyNPC = null;
+    this.nearbyPortal = null;
+
+    // === LOAD PHASE ===
+    this.currentMap = newMap;
+
+    // Recreate map elements
+    this.createPlatforms();
+    this.createLadders();
+    this.createMonsters();
+    this.createPortals();
+    this.createNPCs();
+
+    // Re-setup colliders
+    this.playerPlatformCollider = this.physics.add.collider(this.player, this.platforms);
+    this.setupLadderOverlaps();
+
+    // Move player to spawn position
+    this.player.setPosition(spawnX, spawnY);
+    this.player.setVelocity(0, 0);
+
+    // Update UI
+    this.events.emit('map:changed', { mapName: newMap.name });
+
+    console.log(`Loaded map: ${newMap.name}`);
+  }
+
   private setupInteractionKeys(): void {
     // NPC interaction is now handled via action bindings
 
@@ -1071,17 +1153,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   private usePortal(portal: Portal): void {
-    // For now, just show a message since we only have one map
     console.log(`Using portal to ${portal.targetMap} at (${portal.targetX}, ${portal.targetY})`);
+
+    // Check if target map exists
+    const targetMap = getMap(portal.targetMap);
+    if (!targetMap) {
+      console.error(`Target map not found: ${portal.targetMap}`);
+      return;
+    }
 
     // Flash effect
     this.cameras.main.flash(300, 255, 255, 255);
 
-    // Teleport player (within same map for demo)
+    // Load the new map after flash starts
     this.time.delayedCall(150, () => {
-      // In a full implementation, this would transition to another scene
-      // For now, just move player to demonstrate the portal works
-      this.player.setPosition(portal.targetX, portal.targetY);
+      this.loadMap(portal.targetMap, portal.targetX, portal.targetY);
     });
   }
 
