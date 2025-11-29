@@ -89,16 +89,17 @@ export const MAPS: Record<string, MapDefinition> = {
       { x: 850, y: GAME_HEIGHT - 440, type: 'platform' },
     ],
     ladders: [
-      // Ground to first level
-      { x: 200, y: GAME_HEIGHT - 100, height: 140, type: 'ladder' },
-      { x: 800, y: GAME_HEIGHT - 100, height: 140, type: 'rope' },
-      { x: 1080, y: GAME_HEIGHT - 100, height: 140, type: 'ladder' },
-      // First level to second level
-      { x: 350, y: GAME_HEIGHT - 255, height: 170, type: 'ladder' },
-      { x: 700, y: GAME_HEIGHT - 255, height: 170, type: 'rope' },
-      // Second level to third level
-      { x: 550, y: GAME_HEIGHT - 390, height: 100, type: 'ladder' },
-      { x: 850, y: GAME_HEIGHT - 390, height: 100, type: 'rope' },
+      // Ground to first level (platforms at GAME_HEIGHT - 170)
+      // Ladder center at -100, height 180 → top at -100 - 90 = -190, extends 20 above platform
+      { x: 200, y: GAME_HEIGHT - 100, height: 180, type: 'ladder' },
+      { x: 800, y: GAME_HEIGHT - 100, height: 180, type: 'rope' },
+      { x: 1080, y: GAME_HEIGHT - 100, height: 180, type: 'ladder' },
+      // First level to second level (platforms at GAME_HEIGHT - 340)
+      { x: 350, y: GAME_HEIGHT - 255, height: 210, type: 'ladder' },
+      { x: 700, y: GAME_HEIGHT - 255, height: 210, type: 'rope' },
+      // Second level to third level (platforms at GAME_HEIGHT - 440)
+      { x: 550, y: GAME_HEIGHT - 390, height: 140, type: 'ladder' },
+      { x: 850, y: GAME_HEIGHT - 390, height: 140, type: 'rope' },
     ],
     monsters: [
       { x: 400, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },
@@ -157,13 +158,14 @@ export const MAPS: Record<string, MapDefinition> = {
       { x: 1050, y: GAME_HEIGHT - 280, type: 'platform' },
     ],
     ladders: [
-      { x: 150, y: GAME_HEIGHT - 90, height: 120, type: 'ladder' },
-      { x: 550, y: GAME_HEIGHT - 90, height: 120, type: 'rope' },
-      { x: 950, y: GAME_HEIGHT - 90, height: 120, type: 'ladder' },
-      // To upper level
-      { x: 250, y: GAME_HEIGHT - 215, height: 130, type: 'ladder' },
-      { x: 650, y: GAME_HEIGHT - 215, height: 130, type: 'rope' },
-      { x: 1050, y: GAME_HEIGHT - 215, height: 130, type: 'ladder' },
+      // Ground to first level (platforms at GAME_HEIGHT - 150)
+      { x: 150, y: GAME_HEIGHT - 90, height: 160, type: 'ladder' },
+      { x: 550, y: GAME_HEIGHT - 90, height: 160, type: 'rope' },
+      { x: 950, y: GAME_HEIGHT - 90, height: 160, type: 'ladder' },
+      // First to upper level (platforms at GAME_HEIGHT - 280)
+      { x: 250, y: GAME_HEIGHT - 215, height: 170, type: 'ladder' },
+      { x: 650, y: GAME_HEIGHT - 215, height: 170, type: 'rope' },
+      { x: 1050, y: GAME_HEIGHT - 215, height: 170, type: 'ladder' },
     ],
     monsters: [
       { x: 300, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },

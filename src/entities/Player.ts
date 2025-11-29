@@ -369,11 +369,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
           if (self.cursors.up?.isDown) {
             if (self.y <= self.currentLadder.getTopY()) {
-              // Give a small hop off the ladder to land on platform
-              self.y = self.currentLadder.getTopY() - 10;
-              self.releaseLadder();
+              // Position player so feet are above the platform
+              // Player center needs to be at platform level minus half player height
               const body = self.body as Phaser.Physics.Arcade.Body;
-              body.setVelocityY(-50);
+              self.y = self.currentLadder.getTopY() - body.halfHeight - 5;
+              self.releaseLadder();
+              body.setVelocityY(0);
               self.stateMachine.setState('FALL');
               return;
             }
@@ -404,11 +405,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
           if (self.cursors.up?.isDown) {
             if (self.y <= self.currentLadder.getTopY()) {
-              // Give a small hop off the ladder to land on platform
-              self.y = self.currentLadder.getTopY() - 10;
-              self.releaseLadder();
+              // Position player so feet are above the platform
               const body = self.body as Phaser.Physics.Arcade.Body;
-              body.setVelocityY(-50); // Small upward boost
+              self.y = self.currentLadder.getTopY() - body.halfHeight - 5;
+              self.releaseLadder();
+              body.setVelocityY(0);
               self.stateMachine.setState('FALL');
               return;
             }
