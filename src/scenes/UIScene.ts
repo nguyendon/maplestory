@@ -18,6 +18,7 @@ export default class UIScene extends Phaser.Scene {
   private expBar!: StatusBar;
   private levelText!: Phaser.GameObjects.Text;
   private statusFrame!: Phaser.GameObjects.Graphics;
+  private miniMapContainer!: Phaser.GameObjects.Container;
 
   private readonly BAR_WIDTH = 160;
   private readonly BAR_HEIGHT = 18;
@@ -61,6 +62,11 @@ export default class UIScene extends Phaser.Scene {
 
     // Mini-map frame placeholder (top-right)
     this.createMiniMapFrame();
+
+    // M key to toggle minimap
+    this.input.keyboard?.on('keydown-M', () => {
+      this.miniMapContainer.setVisible(!this.miniMapContainer.visible);
+    });
 
     // Set up event listeners
     const gameScene = this.scene.get('GameScene');
@@ -270,6 +276,9 @@ export default class UIScene extends Phaser.Scene {
     const mapX = GAME_WIDTH - mapW - 10;
     const mapY = 10;
 
+    // Create container for all minimap elements
+    this.miniMapContainer = this.add.container(0, 0);
+
     const frame = this.add.graphics();
 
     // Shadow
@@ -292,19 +301,23 @@ export default class UIScene extends Phaser.Scene {
     frame.fillStyle(0x0f0f1a, 0.9);
     frame.fillRoundedRect(mapX + 2, mapY + 2, mapW - 4, 16, { tl: 4, tr: 4, bl: 0, br: 0 });
 
+    this.miniMapContainer.add(frame);
+
     // Map title
-    this.add.text(mapX + mapW / 2, mapY + 10, 'Maple Forest', {
+    const mapTitle = this.add.text(mapX + mapW / 2, mapY + 10, 'Maple Forest', {
       fontFamily: 'Arial',
       fontSize: '10px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 1
     }).setOrigin(0.5);
+    this.miniMapContainer.add(mapTitle);
 
     // Player dot on mini-map
     const playerDot = this.add.graphics();
     playerDot.fillStyle(0x00ff00, 1);
     playerDot.fillCircle(mapX + mapW / 2, mapY + mapH / 2 + 10, 3);
+    this.miniMapContainer.add(playerDot);
 
     // Pulse animation for player dot
     this.tweens.add({
