@@ -54,11 +54,11 @@ export class BootScene extends Phaser.Scene {
     platformGraphics.generateTexture('platform', 200, 32);
     platformGraphics.destroy();
 
-    // Ground texture
+    // Ground texture - wide enough for the full game width
     const groundGraphics = this.make.graphics({ x: 0, y: 0 });
     groundGraphics.fillStyle(COLORS.GROUND);
-    groundGraphics.fillRect(0, 0, 800, 64);
-    groundGraphics.generateTexture('ground', 800, 64);
+    groundGraphics.fillRect(0, 0, 1600, 64);
+    groundGraphics.generateTexture('ground', 1600, 64);
     groundGraphics.destroy();
 
     // Monster texture
