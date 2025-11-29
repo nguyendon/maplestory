@@ -249,4 +249,38 @@ export class Inventory {
   getAllSlots(): InventorySlot[] {
     return [...this.slots];
   }
+
+  /**
+   * Serialize inventory for saving
+   */
+  toJSON(): { slots: { itemId: string | null; quantity: number }[]; mesos: number } {
+    return {
+      slots: this.slots.map(slot => ({
+        itemId: slot.item?.id || null,
+        quantity: slot.quantity
+      })),
+      mesos: this.mesos
+    };
+  }
+
+  /**
+   * Load inventory from save data
+   */
+  loadFromData(data: { slots: { itemId: string | null; quantity: number }[]; mesos: number }, getItemFn: (id: string) => Item | null): void {
+    this.mesos = data.mesos || 0;
+
+    for (let i = 0; i < this.size && i < data.slots.length; i++) {
+      const slotData = data.slots[i];
+      if (slotData.itemId) {
+        const item = getItemFn(slotData.itemId);
+        if (item) {
+          this.slots[i] = { item, quantity: slotData.quantity };
+        } else {
+          this.slots[i] = { item: null, quantity: 0 };
+        }
+      } else {
+        this.slots[i] = { item: null, quantity: 0 };
+      }
+    }
+  }
 }

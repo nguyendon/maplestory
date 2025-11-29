@@ -27,6 +27,7 @@ import { EquipmentUI } from '../ui/EquipmentUI';
 import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
+import { defaultSaveManager, type SaveData } from '../systems/SaveManager';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -91,8 +92,23 @@ export class GameScene extends Phaser.Scene {
     this.inventory = new Inventory(24);
     this.equipment = new Equipment();
 
-    // Give player starting potions
-    this.giveStarterItems();
+    // Try to load saved game, otherwise give starter items
+    this.loadGame().then(loaded => {
+      if (!loaded) {
+        this.giveStarterItems();
+      }
+      // Update UI after load
+      this.emitPlayerStats();
+      if (this.inventoryUI) this.inventoryUI.refresh();
+      if (this.equipmentUI) this.equipmentUI.refresh();
+    });
+
+    // Set up auto-save every 30 seconds
+    this.time.addEvent({
+      delay: 30000,
+      callback: () => this.autoSave(),
+      loop: true
+    });
 
     // Set up stat events for UI
     this.setupStatsEvents();
@@ -221,6 +237,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('TWO', ACTIONS.MP_POTION);
     initialActionBindings.set('I', ACTIONS.INVENTORY);
     initialActionBindings.set('E', ACTIONS.EQUIPMENT);
+    initialActionBindings.set('F5', ACTIONS.SAVE);
     this.actionBindings = initialActionBindings;
 
     this.keyboardConfigUI.setInitialBindings(initialSkillBindings, initialActionBindings);
@@ -563,6 +580,9 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'PICKUP':
         this.tryPickupItems();
+        break;
+      case 'SAVE':
+        this.saveGame();
         break;
       // JUMP and ATTACK are handled directly by the Player class
     }
@@ -1602,5 +1622,106 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => sparkle.destroy()
       });
     }
+  }
+
+  // ============================================
+  // Save/Load System
+  // ============================================
+
+  /**
+   * Save the current game state
+   */
+  private async saveGame(): Promise<void> {
+    const saveData: SaveData = {
+      version: 1,
+      timestamp: Date.now(),
+      character: this.playerStats.toJSON(),
+      inventory: this.inventory.toJSON(),
+      equipment: this.equipment.toJSON()
+    };
+
+    const result = await defaultSaveManager.save(saveData);
+
+    if (result.success) {
+      this.showSaveMessage('Game saved!', true);
+    } else {
+      this.showSaveMessage(`Save failed: ${result.error}`, false);
+    }
+  }
+
+  /**
+   * Load game state from storage
+   * @returns true if game was loaded, false if no save exists
+   */
+  private async loadGame(): Promise<boolean> {
+    const result = await defaultSaveManager.load();
+
+    if (!result.success || !result.data) {
+      console.log('No save data found, starting fresh');
+      return false;
+    }
+
+    const data = result.data;
+
+    // Load character stats
+    this.playerStats.loadFromData(data.character);
+
+    // Load inventory
+    this.inventory.loadFromData(data.inventory, (id: string) => getItem(id));
+
+    // Load equipment
+    this.equipment.loadFromData(data.equipment, (id: string) => {
+      const item = getItem(id);
+      if (item && item.type === ItemType.EQUIP) {
+        return item as EquipItem;
+      }
+      return null;
+    });
+
+    console.log('Game loaded successfully');
+    return true;
+  }
+
+  /**
+   * Auto-save silently (no visual feedback unless error)
+   */
+  private async autoSave(): Promise<void> {
+    const saveData: SaveData = {
+      version: 1,
+      timestamp: Date.now(),
+      character: this.playerStats.toJSON(),
+      inventory: this.inventory.toJSON(),
+      equipment: this.equipment.toJSON()
+    };
+
+    const result = await defaultSaveManager.save(saveData);
+
+    if (!result.success) {
+      console.error('Auto-save failed:', result.error);
+    } else {
+      console.log('Auto-saved');
+    }
+  }
+
+  private showSaveMessage(message: string, success: boolean): void {
+    const text = this.add.text(GAME_WIDTH / 2, 100, message, {
+      fontFamily: 'Arial',
+      fontSize: '18px',
+      color: success ? '#88ff88' : '#ff6b6b',
+      stroke: '#000000',
+      strokeThickness: 4
+    });
+    text.setOrigin(0.5);
+    text.setDepth(200);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 20,
+      alpha: 0,
+      duration: 1500,
+      delay: 500,
+      ease: 'Quad.easeOut',
+      onComplete: () => text.destroy()
+    });
   }
 }

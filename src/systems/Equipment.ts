@@ -150,4 +150,34 @@ export class Equipment extends Phaser.Events.EventEmitter {
       accessory: this.slots[EquipSlot.ACCESSORY]?.id || null,
     };
   }
+
+  /**
+   * Load equipment from save data
+   */
+  loadFromData(data: EquipmentData, getItemFn: (id: string) => EquipItem | null): void {
+    const slotMapping: { key: keyof EquipmentData; slot: EquipSlot }[] = [
+      { key: 'weapon', slot: EquipSlot.WEAPON },
+      { key: 'hat', slot: EquipSlot.HAT },
+      { key: 'top', slot: EquipSlot.TOP },
+      { key: 'bottom', slot: EquipSlot.BOTTOM },
+      { key: 'shoes', slot: EquipSlot.SHOES },
+      { key: 'gloves', slot: EquipSlot.GLOVES },
+      { key: 'cape', slot: EquipSlot.CAPE },
+      { key: 'accessory', slot: EquipSlot.ACCESSORY },
+    ];
+
+    for (const { key, slot } of slotMapping) {
+      const itemId = data[key];
+      if (itemId) {
+        const item = getItemFn(itemId);
+        if (item) {
+          this.slots[slot] = item;
+        }
+      } else {
+        this.slots[slot] = null;
+      }
+    }
+
+    this.emit('statsChanged', this.getTotalStats());
+  }
 }

@@ -20,6 +20,7 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   MP_POTION: { id: 'MP_POTION', name: 'MP Potion', color: 0x4ecdc4 },
   INVENTORY: { id: 'INVENTORY', name: 'Inventory', color: 0x8b4513 },
   EQUIPMENT: { id: 'EQUIPMENT', name: 'Equip', color: 0x4a6fa5 },
+  SAVE: { id: 'SAVE', name: 'Save', color: 0x228b22 },
 };
 
 type BindingType = SkillDefinition | ActionDefinition;
