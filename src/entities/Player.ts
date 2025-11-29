@@ -12,6 +12,7 @@ import type { AttackData } from '../combat/AttackData';
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private attackKey!: Phaser.Input.Keyboard.Key;
+  private jumpKey!: Phaser.Input.Keyboard.Key;
   private stateMachine: StateMachine;
   private currentState: PlayerState = 'IDLE';
 
@@ -55,6 +56,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
       this.attackKey = scene.input.keyboard.addKey(INPUT.ATTACK);
+      this.jumpKey = scene.input.keyboard.addKey('C'); // Default jump key, can be changed via setKeyBindings
     }
 
     // State machine
@@ -479,7 +481,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private tryJumpOffLadder(): boolean {
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.space!)) {
+    if (this.jumpKey && Phaser.Input.Keyboard.JustDown(this.jumpKey)) {
       this.releaseLadder();
 
       const body = this.body as Phaser.Physics.Arcade.Body;
@@ -498,7 +500,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   private tryJump(): boolean {
     const time = this.scene.time.now;
-    const jumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space!);
+    const jumpPressed = this.jumpKey ? Phaser.Input.Keyboard.JustDown(this.jumpKey) : false;
 
     if (jumpPressed) {
       this.lastJumpPressTime = time;
@@ -534,7 +536,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private handleJumpCut(): void {
-    const jumpKeyDown = this.cursors.space?.isDown ?? false;
+    const jumpKeyDown = this.jumpKey?.isDown ?? false;
     const body = this.body as Phaser.Physics.Arcade.Body;
     const movingUp = body.velocity.y < 0;
 
@@ -601,6 +603,29 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Only play if animation exists and isn't already playing
     if (this.anims.exists(animKey)) {
       this.play(animKey, true);
+    }
+  }
+
+  /**
+   * Set custom key bindings for player actions
+   */
+  public setKeyBindings(bindings: { jump?: string | null; attack?: string | null }): void {
+    if (!this.scene.input.keyboard) return;
+
+    if (bindings.jump !== undefined && bindings.jump !== null) {
+      // Remove old key listener
+      if (this.jumpKey) {
+        this.jumpKey.destroy();
+      }
+      this.jumpKey = this.scene.input.keyboard.addKey(bindings.jump);
+    }
+
+    if (bindings.attack !== undefined && bindings.attack !== null) {
+      // Remove old key listener
+      if (this.attackKey) {
+        this.attackKey.destroy();
+      }
+      this.attackKey = this.scene.input.keyboard.addKey(bindings.attack);
     }
   }
 
