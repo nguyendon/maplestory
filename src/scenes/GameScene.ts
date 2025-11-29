@@ -28,6 +28,7 @@ import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
 import { defaultSaveManager, type SaveData } from '../systems/SaveManager';
+import { getDefaultMap, type MapDefinition } from '../config/MapData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -70,22 +71,29 @@ export class GameScene extends Phaser.Scene {
   // Action key bindings (configurable)
   private actionBindings: Map<string, ActionDefinition> = new Map();
 
+  // Current map data
+  private currentMap!: MapDefinition;
+
   constructor() {
     super({ key: SCENES.GAME });
   }
 
   create(): void {
+    // Load map data
+    this.currentMap = getDefaultMap();
+
     // Create background first
     this.createBackground();
 
-    // Create platforms
+    // Create platforms from map data
     this.createPlatforms();
 
-    // Create ladders
+    // Create ladders from map data
     this.createLadders();
 
-    // Create player - spawn above the ground (ground is at GAME_HEIGHT - 32, player is 48 tall)
-    this.player = new Player(this, 100, GAME_HEIGHT - 96);
+    // Create player at map spawn point
+    const spawn = this.currentMap.playerSpawn;
+    this.player = new Player(this, spawn.x, spawn.y);
 
     // Initialize RPG systems
     this.playerStats = new PlayerStats(this);
@@ -628,21 +636,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMonsters(): void {
-    // Spawn slimes on the ground - spread across wider map
-    const slimePositions = [
-      { x: 400, y: GAME_HEIGHT - 100 },
-      { x: 650, y: GAME_HEIGHT - 100 },
-      { x: 900, y: GAME_HEIGHT - 100 },
-      { x: 1100, y: GAME_HEIGHT - 100 },
-    ];
+    // Create monsters from map data
+    for (const monsterData of this.currentMap.monsters) {
+      const definition = getMonsterDefinition(monsterData.monsterId);
+      if (!definition) continue;
 
-    slimePositions.forEach(pos => {
       const monster = new Monster(
         this,
-        pos.x,
-        pos.y,
-        'SLIME',
-        getMonsterDefinition('SLIME')
+        monsterData.x,
+        monsterData.y,
+        monsterData.monsterId,
+        definition
       );
       monster.setTarget(this.player);
       this.monsters.push(monster);
@@ -652,7 +656,7 @@ export class GameScene extends Phaser.Scene {
 
       // Register hurtbox with combat manager
       this.combatManager.registerHurtbox(monster.getHurtbox());
-    });
+    }
   }
 
   private onCombatHit(data: { damage: number; x: number; y: number; isCritical: boolean }): void {
@@ -967,131 +971,58 @@ export class GameScene extends Phaser.Scene {
   private createPlatforms(): void {
     this.platforms = this.physics.add.staticGroup();
 
-    // Ground - spans full width
-    const ground = this.platforms.create(GAME_WIDTH / 2, GAME_HEIGHT - 32, 'ground') as Phaser.Physics.Arcade.Sprite;
-    ground.setScale(1).refreshBody();
-
-    // Floating platforms (MapleStory style layout) - scaled to new resolution
-    this.platforms.create(200, GAME_HEIGHT - 170, 'platform');
-    this.platforms.create(500, GAME_HEIGHT - 240, 'platform');
-    this.platforms.create(800, GAME_HEIGHT - 170, 'platform');
-    this.platforms.create(1080, GAME_HEIGHT - 170, 'platform');
-    this.platforms.create(350, GAME_HEIGHT - 340, 'platform');
-    this.platforms.create(700, GAME_HEIGHT - 340, 'platform');
-    this.platforms.create(1000, GAME_HEIGHT - 340, 'platform');
-    this.platforms.create(550, GAME_HEIGHT - 440, 'platform');
-    this.platforms.create(850, GAME_HEIGHT - 440, 'platform');
+    // Create platforms from map data
+    for (const platformData of this.currentMap.platforms) {
+      const textureKey = platformData.type === 'ground' ? 'ground' : 'platform';
+      const platform = this.platforms.create(platformData.x, platformData.y, textureKey) as Phaser.Physics.Arcade.Sprite;
+      if (platformData.scale) {
+        platform.setScale(platformData.scale).refreshBody();
+      }
+    }
   }
 
   private createLadders(): void {
-    // Ground to first level platforms
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 200,
-      y: GAME_HEIGHT - 100,
-      height: 140,
-      type: 'ladder',
-    }));
-
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 800,
-      y: GAME_HEIGHT - 100,
-      height: 140,
-      type: 'rope',
-    }));
-
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 1080,
-      y: GAME_HEIGHT - 100,
-      height: 140,
-      type: 'ladder',
-    }));
-
-    // First level to second level
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 350,
-      y: GAME_HEIGHT - 255,
-      height: 170,
-      type: 'ladder',
-    }));
-
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 700,
-      y: GAME_HEIGHT - 255,
-      height: 170,
-      type: 'rope',
-    }));
-
-    // Second level to third level
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 550,
-      y: GAME_HEIGHT - 390,
-      height: 100,
-      type: 'ladder',
-    }));
-
-    this.ladders.push(new Ladder({
-      scene: this,
-      x: 850,
-      y: GAME_HEIGHT - 390,
-      height: 100,
-      type: 'rope',
-    }));
+    // Create ladders from map data
+    for (const ladderData of this.currentMap.ladders) {
+      this.ladders.push(new Ladder({
+        scene: this,
+        x: ladderData.x,
+        y: ladderData.y,
+        height: ladderData.height,
+        type: ladderData.type,
+      }));
+    }
   }
 
   private createPortals(): void {
-    // Portal on upper platform
-    const portal = new Portal({
-      scene: this,
-      x: 550,
-      y: GAME_HEIGHT - 480,
-      width: 50,
-      height: 70,
-      targetMap: 'map2',
-      targetX: 100,
-      targetY: GAME_HEIGHT - 100
-    });
-    this.portals.push(portal);
-
-    // Portal at right side of ground
-    const portal2 = new Portal({
-      scene: this,
-      x: GAME_WIDTH - 100,
-      y: GAME_HEIGHT - 70,
-      width: 40,
-      height: 60,
-      targetMap: 'map2',
-      targetX: 50,
-      targetY: GAME_HEIGHT - 100
-    });
-    this.portals.push(portal2);
+    // Create portals from map data
+    for (const portalData of this.currentMap.portals) {
+      const portal = new Portal({
+        scene: this,
+        x: portalData.x,
+        y: portalData.y,
+        width: portalData.width,
+        height: portalData.height,
+        targetMap: portalData.targetMap,
+        targetX: portalData.targetX,
+        targetY: portalData.targetY,
+      });
+      this.portals.push(portal);
+    }
   }
 
   private createNPCs(): void {
-    // Guide NPC near spawn
-    const guideNPC = new NPC({
-      scene: this,
-      x: 180,
-      y: GAME_HEIGHT - 70,
-      name: 'Maple Guide',
-      dialogueKey: 'guide_intro'
-    });
-    this.npcs.push(guideNPC);
-
-    // Shop NPC on middle platform
-    const shopNPC = new NPC({
-      scene: this,
-      x: 500,
-      y: GAME_HEIGHT - 280,
-      name: 'Shopkeeper',
-      dialogueKey: 'shop_greeting'
-    });
-    this.npcs.push(shopNPC);
+    // Create NPCs from map data
+    for (const npcData of this.currentMap.npcs) {
+      const npc = new NPC({
+        scene: this,
+        x: npcData.x,
+        y: npcData.y,
+        name: npcData.name,
+        dialogueKey: npcData.dialogueKey,
+      });
+      this.npcs.push(npc);
+    }
   }
 
   private setupInteractionKeys(): void {
