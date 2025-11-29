@@ -48,7 +48,7 @@ export class NPC extends Phaser.GameObjects.Container {
     this.add(this.nameText);
 
     // Interaction prompt (hidden by default)
-    this.interactionPrompt = config.scene.add.text(0, -this.npcHeight / 2 - 45, 'Press NPC', {
+    this.interactionPrompt = config.scene.add.text(0, -this.npcHeight / 2 - 45, 'Press [N]', {
       fontFamily: 'Arial',
       fontSize: '10px',
       color: '#ffffff',

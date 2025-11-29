@@ -115,6 +115,14 @@ export class GameScene extends Phaser.Scene {
     this.events.on('monster:damaged', this.onMonsterDamaged, this);
     this.events.on('monster:death', this.onMonsterDeath, this);
 
+    // Listen for dialogue events
+    this.events.on('dialogue:loadNext', (dialogueKey: string) => {
+      const dialogue = getDialogue(dialogueKey);
+      if (dialogue) {
+        this.dialogueBox.openDialogue(dialogue);
+      }
+    });
+
     // Launch UI Scene
     this.scene.launch('UIScene');
 
@@ -534,6 +542,19 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.dialogueBox.isOpen) {
         this.dialogueBox.handleInput('ESC');
+      }
+    });
+
+    // Arrow keys for dialogue choice selection
+    this.input.keyboard?.on('keydown-UP', () => {
+      if (this.dialogueBox.isOpen) {
+        this.dialogueBox.handleInput('UP');
+      }
+    });
+
+    this.input.keyboard?.on('keydown-DOWN', () => {
+      if (this.dialogueBox.isOpen) {
+        this.dialogueBox.handleInput('DOWN');
       }
     });
   }

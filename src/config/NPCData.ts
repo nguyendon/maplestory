@@ -48,8 +48,8 @@ export const DIALOGUES: Record<string, DialogueData> = {
         speaker: 'Maple Guide',
         text: 'Defeat monsters to gain experience and level up!',
         choices: [
-          { text: 'Tell me more about combat' },
-          { text: 'How do I use skills?' },
+          { text: 'Tell me more about combat', nextDialogueKey: 'guide_combat' },
+          { text: 'How do I use skills?', nextDialogueKey: 'guide_skills' },
           { text: 'Thanks, bye!' }
         ]
       }
