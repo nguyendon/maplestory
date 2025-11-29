@@ -53,7 +53,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
 
   MUSHROOM: {
     name: 'Orange Mushroom',
-    spriteKey: 'monster',
+    spriteKey: 'mushroom',
     width: 36,
     height: 40,
     maxHp: 80,
@@ -76,7 +76,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
 
   SNAIL: {
     name: 'Red Snail',
-    spriteKey: 'monster',
+    spriteKey: 'snail',
     width: 40,
     height: 28,
     maxHp: 30,

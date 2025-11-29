@@ -168,14 +168,17 @@ export const MAPS: Record<string, MapDefinition> = {
       { x: 1050, y: GAME_HEIGHT - 215, height: 170, type: 'ladder' },
     ],
     monsters: [
-      { x: 300, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },
-      { x: 500, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },
-      { x: 700, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },
-      { x: 900, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },
-      { x: 1100, y: GAME_HEIGHT - 100, monsterId: 'SLIME' },
-      // Monsters on platforms
-      { x: 350, y: GAME_HEIGHT - 190, monsterId: 'SLIME' },
-      { x: 750, y: GAME_HEIGHT - 190, monsterId: 'SLIME' },
+      // Snails on ground (easier)
+      { x: 300, y: GAME_HEIGHT - 100, monsterId: 'SNAIL' },
+      { x: 600, y: GAME_HEIGHT - 100, monsterId: 'SNAIL' },
+      { x: 1100, y: GAME_HEIGHT - 100, monsterId: 'SNAIL' },
+      // Mushrooms on ground (medium)
+      { x: 450, y: GAME_HEIGHT - 100, monsterId: 'MUSHROOM' },
+      { x: 800, y: GAME_HEIGHT - 100, monsterId: 'MUSHROOM' },
+      { x: 950, y: GAME_HEIGHT - 100, monsterId: 'MUSHROOM' },
+      // Mushrooms on platforms (harder to reach)
+      { x: 350, y: GAME_HEIGHT - 190, monsterId: 'MUSHROOM' },
+      { x: 750, y: GAME_HEIGHT - 190, monsterId: 'MUSHROOM' },
     ],
     portals: [
       // Portal back to first map (left side)

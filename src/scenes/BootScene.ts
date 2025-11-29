@@ -47,6 +47,8 @@ export class BootScene extends Phaser.Scene {
   private createPlaceholderTextures(): void {
     this.createPlayerSpriteSheet();
     this.createSlimeSpriteSheet();
+    this.createMushroomSpriteSheet();
+    this.createSnailSpriteSheet();
     this.createPlatformTexture();
     this.createGroundTexture();
   }
@@ -405,6 +407,262 @@ export class BootScene extends Phaser.Scene {
     ctx.fill();
   }
 
+  private createMushroomSpriteSheet(): void {
+    const frameWidth = 40;
+    const frameHeight = 44;
+    const frameCount = 6;
+
+    const canvas = this.textures.createCanvas('mushroom-sheet', frameWidth * frameCount, frameHeight);
+    if (!canvas) return;
+
+    const ctx = canvas.context;
+    ctx.imageSmoothingEnabled = false;
+
+    for (let i = 0; i < frameCount; i++) {
+      this.drawMushroomFrame(ctx, i * frameWidth, 0, frameWidth, frameHeight, i);
+    }
+
+    canvas.refresh();
+
+    this.textures.addSpriteSheet('mushroom', canvas.canvas as unknown as HTMLImageElement, {
+      frameWidth,
+      frameHeight,
+    });
+  }
+
+  private drawMushroomFrame(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    frameNum: number
+  ): void {
+    const capColor = '#FF8C00';
+    const capLight = '#FFA500';
+    const capDark = '#CC7000';
+    const stemColor = '#FFF8DC';
+    const stemDark = '#F5DEB3';
+    const spotColor = '#FFFACD';
+    const eyeWhite = '#FFFFFF';
+    const eyePupil = '#2C2C2C';
+    const outlineColor = '#8B4513';
+
+    // Bounce animation
+    const bouncePhase = frameNum / 6;
+    const bounce = Math.sin(bouncePhase * Math.PI * 2) * 2;
+
+    const centerX = x + width / 2;
+    const baseY = y + height - 6;
+
+    // Draw stem
+    ctx.fillStyle = stemColor;
+    ctx.beginPath();
+    ctx.ellipse(centerX, baseY - 10, 8, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stem shadow
+    ctx.fillStyle = stemDark;
+    ctx.beginPath();
+    ctx.ellipse(centerX + 2, baseY - 8, 4, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw cap
+    const capY = baseY - 22 + bounce;
+    ctx.fillStyle = capColor;
+    ctx.beginPath();
+    ctx.ellipse(centerX, capY, 16, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cap highlight
+    ctx.fillStyle = capLight;
+    ctx.beginPath();
+    ctx.ellipse(centerX - 4, capY - 4, 8, 6, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cap shadow (bottom)
+    ctx.fillStyle = capDark;
+    ctx.beginPath();
+    ctx.ellipse(centerX, capY + 6, 14, 4, 0, 0, Math.PI);
+    ctx.fill();
+
+    // Spots on cap
+    ctx.fillStyle = spotColor;
+    ctx.beginPath();
+    ctx.arc(centerX - 6, capY - 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(centerX + 5, capY - 4, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(centerX + 2, capY + 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eyes on stem
+    const eyeY = baseY - 12;
+    // Left eye
+    ctx.fillStyle = eyeWhite;
+    ctx.beginPath();
+    ctx.ellipse(centerX - 4, eyeY, 3, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = eyePupil;
+    ctx.beginPath();
+    ctx.arc(centerX - 3, eyeY + 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Right eye
+    ctx.fillStyle = eyeWhite;
+    ctx.beginPath();
+    ctx.ellipse(centerX + 4, eyeY, 3, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = eyePupil;
+    ctx.beginPath();
+    ctx.arc(centerX + 5, eyeY + 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Angry eyebrows
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 6, eyeY - 4);
+    ctx.lineTo(centerX - 2, eyeY - 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(centerX + 6, eyeY - 4);
+    ctx.lineTo(centerX + 2, eyeY - 2);
+    ctx.stroke();
+
+    // Outline
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(centerX, capY, 16, 12, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  private createSnailSpriteSheet(): void {
+    const frameWidth = 44;
+    const frameHeight = 32;
+    const frameCount = 6;
+
+    const canvas = this.textures.createCanvas('snail-sheet', frameWidth * frameCount, frameHeight);
+    if (!canvas) return;
+
+    const ctx = canvas.context;
+    ctx.imageSmoothingEnabled = false;
+
+    for (let i = 0; i < frameCount; i++) {
+      this.drawSnailFrame(ctx, i * frameWidth, 0, frameWidth, frameHeight, i);
+    }
+
+    canvas.refresh();
+
+    this.textures.addSpriteSheet('snail', canvas.canvas as unknown as HTMLImageElement, {
+      frameWidth,
+      frameHeight,
+    });
+  }
+
+  private drawSnailFrame(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    frameNum: number
+  ): void {
+    const shellColor = '#CD5C5C';
+    const shellLight = '#F08080';
+    const shellDark = '#8B0000';
+    const bodyColor = '#DEB887';
+    const bodyDark = '#D2A679';
+    const eyeWhite = '#FFFFFF';
+    const eyePupil = '#2C2C2C';
+    const outlineColor = '#8B4513';
+
+    // Crawl animation - body stretches
+    const crawlPhase = frameNum / 6;
+    const stretch = Math.sin(crawlPhase * Math.PI * 2) * 2;
+
+    const centerX = x + width / 2;
+    const baseY = y + height - 4;
+
+    // Draw body (slug part)
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.ellipse(centerX - 4 - stretch, baseY - 6, 14 + stretch, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body shadow
+    ctx.fillStyle = bodyDark;
+    ctx.beginPath();
+    ctx.ellipse(centerX - 4 - stretch, baseY - 4, 12 + stretch, 3, 0, 0, Math.PI);
+    ctx.fill();
+
+    // Draw shell
+    const shellX = centerX + 6;
+    const shellY = baseY - 12;
+
+    // Shell spiral
+    ctx.fillStyle = shellColor;
+    ctx.beginPath();
+    ctx.arc(shellX, shellY, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shell highlight
+    ctx.fillStyle = shellLight;
+    ctx.beginPath();
+    ctx.arc(shellX - 2, shellY - 2, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shell spiral lines
+    ctx.strokeStyle = shellDark;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(shellX, shellY, 6, 0.5, Math.PI * 1.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(shellX, shellY, 3, 0, Math.PI);
+    ctx.stroke();
+
+    // Shell outline
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(shellX, shellY, 10, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Eye stalks
+    const eyeStalkX = centerX - 14 - stretch;
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(eyeStalkX, baseY - 8);
+    ctx.lineTo(eyeStalkX - 4, baseY - 16);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(eyeStalkX + 6, baseY - 8);
+    ctx.lineTo(eyeStalkX + 2, baseY - 16);
+    ctx.stroke();
+
+    // Eyes
+    ctx.fillStyle = eyeWhite;
+    ctx.beginPath();
+    ctx.arc(eyeStalkX - 4, baseY - 17, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(eyeStalkX + 2, baseY - 17, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = eyePupil;
+    ctx.beginPath();
+    ctx.arc(eyeStalkX - 4, baseY - 16, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(eyeStalkX + 2, baseY - 16, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   private createPlatformTexture(): void {
     const width = 200;
     const height = 32;
@@ -641,6 +899,50 @@ export class BootScene extends Phaser.Scene {
       key: 'slime-attack',
       frames: this.anims.generateFrameNumbers('slime', { frames: [2, 3, 4, 5, 0] }),
       frameRate: 12,
+      repeat: 0,
+    });
+
+    // Mushroom animations
+    this.anims.create({
+      key: 'mushroom-idle',
+      frames: this.anims.generateFrameNumbers('mushroom', { start: 0, end: 5 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'mushroom-walk',
+      frames: this.anims.generateFrameNumbers('mushroom', { start: 0, end: 5 }),
+      frameRate: 10,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'mushroom-attack',
+      frames: this.anims.generateFrameNumbers('mushroom', { frames: [2, 3, 4, 5, 0] }),
+      frameRate: 12,
+      repeat: 0,
+    });
+
+    // Snail animations
+    this.anims.create({
+      key: 'snail-idle',
+      frames: this.anims.generateFrameNumbers('snail', { start: 0, end: 5 }),
+      frameRate: 6,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'snail-walk',
+      frames: this.anims.generateFrameNumbers('snail', { start: 0, end: 5 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'snail-attack',
+      frames: this.anims.generateFrameNumbers('snail', { frames: [2, 3, 4, 5, 0] }),
+      frameRate: 10,
       repeat: 0,
     });
   }
