@@ -79,6 +79,9 @@ export class GameScene extends Phaser.Scene {
     this.playerStats = new PlayerStats(this);
     this.inventory = new Inventory(24);
 
+    // Give player starting potions
+    this.giveStarterItems();
+
     // Set up stat events for UI
     this.setupStatsEvents();
 
@@ -171,6 +174,8 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('X', ACTIONS.PICKUP);
     initialActionBindings.set('TAB', ACTIONS.SKILL_BAR);
     initialActionBindings.set('N', ACTIONS.INTERACT);
+    initialActionBindings.set('ONE', ACTIONS.HP_POTION);
+    initialActionBindings.set('TWO', ACTIONS.MP_POTION);
     this.actionBindings = initialActionBindings;
 
     this.keyboardConfigUI.setInitialBindings(initialSkillBindings, initialActionBindings);
@@ -477,6 +482,12 @@ export class GameScene extends Phaser.Scene {
           }
         }
         break;
+      case 'HP_POTION':
+        this.usePotion('red_potion');
+        break;
+      case 'MP_POTION':
+        this.usePotion('blue_potion');
+        break;
       // JUMP and ATTACK are handled directly by the Player class
     }
   }
@@ -652,6 +663,9 @@ export class GameScene extends Phaser.Scene {
     // Update skill systems
     this.skillManager.update();
     this.skillBar.update();
+
+    // Update player stats (HP/MP regeneration)
+    this.playerStats.update(delta);
 
     // Check proximity to NPCs and portals
     this.checkNPCProximity();
@@ -1158,6 +1172,139 @@ export class GameScene extends Phaser.Scene {
       // Highlight
       graphics.fillStyle(0x2ecc71, 0.7);
       graphics.fillCircle(x - 5, treeY - 25, 10);
+    });
+  }
+
+  private giveStarterItems(): void {
+    // Give player starting potions
+    const redPotion = getItem('red_potion');
+    const bluePotion = getItem('blue_potion');
+
+    if (redPotion) {
+      this.inventory.addItem(redPotion, 10);
+    }
+    if (bluePotion) {
+      this.inventory.addItem(bluePotion, 10);
+    }
+
+    // Give some starting mesos
+    this.inventory.addMesos(500);
+  }
+
+  /**
+   * Use a potion from inventory by item ID
+   */
+  private usePotion(itemId: string): void {
+    const result = this.inventory.useItemById(itemId, this.playerStats);
+
+    if (result.success) {
+      // Show visual feedback
+      this.showPotionEffect(result.effect, result.value);
+
+      // Update UI
+      this.events.emit('player:hp-changed', {
+        current: this.playerStats.currentHP,
+        max: this.playerStats.getMaxHP()
+      });
+      this.events.emit('player:mp-changed', {
+        current: this.playerStats.currentMP,
+        max: this.playerStats.getMaxMP()
+      });
+    } else {
+      // Show error message
+      this.showPotionMessage(result.message, false);
+    }
+  }
+
+  private showPotionEffect(effect?: string, value?: number): void {
+    const playerX = this.player.x;
+    const playerY = this.player.y;
+
+    // Determine color based on effect type
+    let color = 0x00ff00;
+    let message = '';
+
+    if (effect === 'heal_hp') {
+      color = 0xff6b6b;
+      message = `+${value} HP`;
+    } else if (effect === 'heal_mp') {
+      color = 0x4ecdc4;
+      message = `+${value} MP`;
+    } else if (effect === 'buff_atk') {
+      color = 0xffd93d;
+      message = `ATK UP!`;
+    }
+
+    // Create healing particles
+    this.createHealingParticles(playerX, playerY, color);
+
+    // Show floating text
+    this.showPotionMessage(message, true);
+  }
+
+  private createHealingParticles(x: number, y: number, color: number): void {
+    // Create sparkle particles rising up
+    for (let i = 0; i < 8; i++) {
+      const particle = this.add.graphics();
+      const offsetX = (Math.random() - 0.5) * 40;
+      const startY = y + 10;
+
+      particle.fillStyle(color, 1);
+      particle.fillCircle(0, 0, 3);
+      particle.fillStyle(0xffffff, 0.8);
+      particle.fillCircle(-1, -1, 1.5);
+
+      particle.setPosition(x + offsetX, startY);
+      particle.setDepth(100);
+
+      // Animate particle floating up and fading
+      this.tweens.add({
+        targets: particle,
+        y: startY - 60 - Math.random() * 30,
+        alpha: 0,
+        scale: { from: 1, to: 0.3 },
+        duration: 800 + Math.random() * 400,
+        delay: i * 50,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy()
+      });
+    }
+
+    // Create a brief glow effect around player
+    const glow = this.add.graphics();
+    glow.fillStyle(color, 0.3);
+    glow.fillCircle(0, 0, 30);
+    glow.setPosition(x, y);
+    glow.setDepth(99);
+
+    this.tweens.add({
+      targets: glow,
+      scale: { from: 1, to: 2 },
+      alpha: 0,
+      duration: 400,
+      ease: 'Quad.easeOut',
+      onComplete: () => glow.destroy()
+    });
+  }
+
+  private showPotionMessage(message: string, success: boolean): void {
+    const text = this.add.text(this.player.x, this.player.y - 50, message, {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: success ? '#ffffff' : '#ff6b6b',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    text.setOrigin(0.5);
+    text.setDepth(101);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      duration: 1000,
+      ease: 'Quad.easeOut',
+      onComplete: () => text.destroy()
     });
   }
 }

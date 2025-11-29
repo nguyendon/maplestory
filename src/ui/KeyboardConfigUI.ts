@@ -16,6 +16,8 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   PICKUP: { id: 'PICKUP', name: 'Pick Up', color: 0x44aa44 },
   SKILL_BAR: { id: 'SKILL_BAR', name: 'Skill Bar', color: 0x666688 },
   INTERACT: { id: 'INTERACT', name: 'Interact', color: 0xaa8844 },
+  HP_POTION: { id: 'HP_POTION', name: 'HP Potion', color: 0xff6b6b },
+  MP_POTION: { id: 'MP_POTION', name: 'MP Potion', color: 0x4ecdc4 },
 };
 
 type BindingType = SkillDefinition | ActionDefinition;
@@ -261,12 +263,12 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   }
 
   private createBindingPalettes(): void {
-    // Actions section
-    const actionsY = this.PANEL_HEIGHT / 2 - 130;
+    // Actions section (2 rows now with potions)
+    const actionsY = this.PANEL_HEIGHT / 2 - 140;
     this.createActionButtons(actionsY);
 
-    // Skills section
-    const skillsY = this.PANEL_HEIGHT / 2 - 60;
+    // Skills section (adjusted for 2 rows of actions)
+    const skillsY = this.PANEL_HEIGHT / 2 - 50;
     this.createSkillButtons(skillsY);
   }
 
@@ -281,14 +283,18 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     });
     this.add(label);
 
-    const buttonWidth = 80;
-    const buttonHeight = 35;
-    const spacing = 10;
+    const buttonWidth = 75;
+    const buttonHeight = 32;
+    const spacing = 8;
+    const buttonsPerRow = 5;
     const startX = -this.PANEL_WIDTH / 2 + 20 + buttonWidth / 2;
 
     actions.forEach((action, index) => {
-      const x = startX + index * (buttonWidth + spacing);
-      this.createBindingButton(action, x, y, buttonWidth, buttonHeight);
+      const row = Math.floor(index / buttonsPerRow);
+      const col = index % buttonsPerRow;
+      const x = startX + col * (buttonWidth + spacing);
+      const rowY = y + row * (buttonHeight + spacing);
+      this.createBindingButton(action, x, rowY, buttonWidth, buttonHeight);
     });
   }
 
