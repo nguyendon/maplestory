@@ -25,7 +25,8 @@ import type { SkillDefinition } from '../skills/SkillData';
 import { InventoryUI } from '../ui/InventoryUI';
 import { EquipmentUI } from '../ui/EquipmentUI';
 import { Equipment } from '../systems/Equipment';
-import { ItemType, EquipSlot, type EquipItem } from '../systems/ItemData';
+import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
+import { DroppedItem } from '../entities/DroppedItem';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -39,6 +40,9 @@ export class GameScene extends Phaser.Scene {
   private combatManager!: CombatManager;
   private effectsManager!: EffectsManager;
   private hitMonstersThisAttack: Set<Monster> = new Set();
+
+  // Dropped items
+  private droppedItems: DroppedItem[] = [];
 
   // RPG Systems
   private playerStats!: PlayerStats;
@@ -557,6 +561,9 @@ export class GameScene extends Phaser.Scene {
           this.inventoryUI.close();
         }
         break;
+      case 'PICKUP':
+        this.tryPickupItems();
+        break;
       // JUMP and ATTACK are handled directly by the Player class
     }
   }
@@ -661,16 +668,19 @@ export class GameScene extends Phaser.Scene {
     this.handleMonsterDrops(data.monster, data.x, data.y);
   }
 
-  private handleMonsterDrops(monster: Monster, _x: number, _y: number): void {
+  private handleMonsterDrops(monster: Monster, x: number, y: number): void {
     const definition = monster['definition'];
     if (!definition) return;
+
+    let dropIndex = 0;
 
     // Meso drop
     const [minMeso, maxMeso] = definition.mesoDrop;
     const mesoAmount = Math.floor(Math.random() * (maxMeso - minMeso + 1)) + minMeso;
     if (mesoAmount > 0) {
-      this.inventory.addMesos(mesoAmount);
-      // Could spawn visual meso drop here
+      const offsetX = (dropIndex - 0.5) * 25;
+      this.spawnDrop(x + offsetX, y, undefined, 0, mesoAmount);
+      dropIndex++;
     }
 
     // Item drops
@@ -680,19 +690,98 @@ export class GameScene extends Phaser.Scene {
           const item = getItem(drop.itemId);
           if (item) {
             const quantity = Math.floor(Math.random() * (drop.maxQuantity - drop.minQuantity + 1)) + drop.minQuantity;
-            const overflow = this.inventory.addItem(item, quantity);
-            if (overflow === 0) {
-              console.log(`Obtained: ${item.name} x${quantity}`);
-            }
+            const offsetX = (dropIndex - 0.5) * 25;
+            this.spawnDrop(x + offsetX, y, item, quantity, 0);
+            dropIndex++;
           }
         }
       });
     }
+  }
 
-    // Refresh inventory UI if open
-    if (this.inventoryUI.isOpen) {
-      this.inventoryUI.refresh();
+  private spawnDrop(x: number, y: number, item?: Item, quantity?: number, mesos?: number): void {
+    const drop = new DroppedItem({
+      scene: this,
+      x,
+      y,
+      item,
+      quantity,
+      mesos
+    });
+    this.droppedItems.push(drop);
+  }
+
+  private tryPickupItems(): void {
+    const playerBounds = this.player.getBounds();
+    const pickedUp: DroppedItem[] = [];
+
+    for (const drop of this.droppedItems) {
+      if (!drop.canBePickedUp()) continue;
+
+      const dropBounds = drop.getBounds();
+      if (Phaser.Geom.Rectangle.Overlaps(playerBounds, dropBounds)) {
+        if (drop.isMesoDrop()) {
+          // Pickup mesos
+          const mesos = drop.getMesos();
+          drop.pickup(this.player.x, this.player.y, () => {
+            this.inventory.addMesos(mesos);
+            this.showPickupMessage(`+${mesos} mesos`, 0xffd700);
+            if (this.inventoryUI.isOpen) {
+              this.inventoryUI.refresh();
+            }
+          });
+          pickedUp.push(drop);
+        } else {
+          // Pickup item
+          const item = drop.getItem();
+          const quantity = drop.getQuantity();
+          if (item) {
+            // Check if inventory has space
+            if (this.inventory.isFull() && !item.stackable) {
+              this.showPickupMessage('Inventory full!', 0xff6666);
+              continue;
+            }
+
+            drop.pickup(this.player.x, this.player.y, () => {
+              const overflow = this.inventory.addItem(item, quantity);
+              if (overflow === 0) {
+                const msg = quantity > 1 ? `${item.name} x${quantity}` : item.name;
+                this.showPickupMessage(`+${msg}`, 0x88ff88);
+              }
+              if (this.inventoryUI.isOpen) {
+                this.inventoryUI.refresh();
+              }
+            });
+            pickedUp.push(drop);
+          }
+        }
+      }
     }
+
+    // Remove picked up items from array
+    this.droppedItems = this.droppedItems.filter(d => !pickedUp.includes(d));
+  }
+
+  private showPickupMessage(message: string, color: number): void {
+    const colorStr = '#' + color.toString(16).padStart(6, '0');
+    const text = this.add.text(this.player.x, this.player.y - 40, message, {
+      fontFamily: 'Arial',
+      fontSize: '12px',
+      color: colorStr,
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+    text.setOrigin(0.5);
+    text.setDepth(101);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 25,
+      alpha: 0,
+      duration: 1000,
+      ease: 'Quad.easeOut',
+      onComplete: () => text.destroy()
+    });
   }
 
   update(time: number, delta: number): void {
@@ -744,6 +833,9 @@ export class GameScene extends Phaser.Scene {
     // Check proximity to NPCs and portals
     this.checkNPCProximity();
     this.checkPortalProximity();
+
+    // Clean up destroyed drops
+    this.droppedItems = this.droppedItems.filter(d => d.active);
 
     // Update debug info
     this.debugText.setText([
