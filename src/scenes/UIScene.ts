@@ -19,6 +19,7 @@ export default class UIScene extends Phaser.Scene {
   private levelText!: Phaser.GameObjects.Text;
   private statusFrame!: Phaser.GameObjects.Graphics;
   private miniMapContainer!: Phaser.GameObjects.Container;
+  private mapTitleText!: Phaser.GameObjects.Text;
 
   private readonly BAR_WIDTH = 160;
   private readonly BAR_HEIGHT = 18;
@@ -75,6 +76,7 @@ export default class UIScene extends Phaser.Scene {
       gameScene.events.on('player:mp-changed', this.handleMPChanged, this);
       gameScene.events.on('player:exp-changed', this.handleEXPChanged, this);
       gameScene.events.on('player:level-up', this.handleLevelUp, this);
+      gameScene.events.on('map:changed', this.handleMapChanged, this);
     }
 
     // Initialize
@@ -304,14 +306,14 @@ export default class UIScene extends Phaser.Scene {
     this.miniMapContainer.add(frame);
 
     // Map title
-    const mapTitle = this.add.text(mapX + mapW / 2, mapY + 10, 'Maple Forest', {
+    this.mapTitleText = this.add.text(mapX + mapW / 2, mapY + 10, 'Henesys Hunting Ground', {
       fontFamily: 'Arial',
       fontSize: '10px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 1
     }).setOrigin(0.5);
-    this.miniMapContainer.add(mapTitle);
+    this.miniMapContainer.add(this.mapTitleText);
 
     // Player dot on mini-map
     const playerDot = this.add.graphics();
@@ -492,6 +494,10 @@ export default class UIScene extends Phaser.Scene {
     this.showLevelUp();
   }
 
+  private handleMapChanged(data: { mapName: string }): void {
+    this.mapTitleText.setText(data.mapName);
+  }
+
   shutdown(): void {
     const gameScene = this.scene.get('GameScene');
     if (gameScene && gameScene.events) {
@@ -499,6 +505,7 @@ export default class UIScene extends Phaser.Scene {
       gameScene.events.off('player:mp-changed', this.handleMPChanged, this);
       gameScene.events.off('player:exp-changed', this.handleEXPChanged, this);
       gameScene.events.off('player:level-up', this.handleLevelUp, this);
+      gameScene.events.off('map:changed', this.handleMapChanged, this);
     }
   }
 }
