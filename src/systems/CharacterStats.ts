@@ -141,25 +141,22 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   private levelUp(): void {
     if (this._level >= PlayerStats.MAX_LEVEL) return;
 
-    const oldMaxHP = this.getMaxHP();
-    const oldMaxMP = this.getMaxMP();
-
     this._level++;
     this._unassignedAP += PlayerStats.AP_PER_LEVEL;
 
-    const hpGain = this.getMaxHP() - oldMaxHP;
-    const mpGain = this.getMaxMP() - oldMaxMP;
-
-    this._currentHP = Math.min(this._currentHP + hpGain, this.getMaxHP());
-    this._currentMP = Math.min(this._currentMP + mpGain, this.getMaxMP());
+    // Fully restore HP and MP on level up
+    this._currentHP = this.getMaxHP();
+    this._currentMP = this.getMaxMP();
 
     this.emit('levelUp', {
       newLevel: this._level,
       apGained: PlayerStats.AP_PER_LEVEL,
-      hpGain,
-      mpGain
+      newMaxHP: this.getMaxHP(),
+      newMaxMP: this.getMaxMP()
     });
 
+    this.emit('hpChanged', this._currentHP, this.getMaxHP());
+    this.emit('mpChanged', this._currentMP, this.getMaxMP());
     this.emit('statsChanged');
   }
 
