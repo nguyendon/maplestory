@@ -1,6 +1,6 @@
 // Game dimensions
-export const GAME_WIDTH = 800;
-export const GAME_HEIGHT = 600;
+export const GAME_WIDTH = 1280;
+export const GAME_HEIGHT = 720;
 
 // Player constants with tuned movement feel
 export const PLAYER = {

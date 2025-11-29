@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 
 interface StatusBar {
   background: Phaser.GameObjects.Graphics;
@@ -14,12 +15,10 @@ export default class UIScene extends Phaser.Scene {
   private expBar!: StatusBar;
   private levelText!: Phaser.GameObjects.Text;
 
-  private readonly BAR_WIDTH = 150;
-  private readonly BAR_HEIGHT = 20;
+  private readonly BAR_WIDTH = 180;
+  private readonly BAR_HEIGHT = 22;
   private readonly BAR_PADDING = 10;
-  private readonly EXP_BAR_HEIGHT = 10;
-  private readonly GAME_WIDTH = 800;
-  private readonly GAME_HEIGHT = 600;
+  private readonly EXP_BAR_HEIGHT = 12;
 
   private readonly HP_COLOR = 0xe74c3c;
   private readonly MP_COLOR = 0x3498db;
@@ -52,8 +51,8 @@ export default class UIScene extends Phaser.Scene {
     // EXP bar at bottom
     this.expBar = this.createStatusBar(
       this.BAR_PADDING,
-      this.GAME_HEIGHT - this.BAR_PADDING - this.EXP_BAR_HEIGHT,
-      this.GAME_WIDTH - this.BAR_PADDING * 2,
+      GAME_HEIGHT - this.BAR_PADDING - this.EXP_BAR_HEIGHT,
+      GAME_WIDTH - this.BAR_PADDING * 2,
       this.EXP_BAR_HEIGHT,
       this.EXP_COLOR
     );
@@ -175,8 +174,8 @@ export default class UIScene extends Phaser.Scene {
     this.updateBar(
       this.expBar,
       this.BAR_PADDING,
-      this.GAME_HEIGHT - this.BAR_PADDING - this.EXP_BAR_HEIGHT,
-      this.GAME_WIDTH - this.BAR_PADDING * 2,
+      GAME_HEIGHT - this.BAR_PADDING - this.EXP_BAR_HEIGHT,
+      GAME_WIDTH - this.BAR_PADDING * 2,
       this.EXP_BAR_HEIGHT,
       current,
       max,
@@ -189,15 +188,15 @@ export default class UIScene extends Phaser.Scene {
     const percentage = max > 0 ? ((current / max) * 100).toFixed(1) : '0.0';
     this.expBar.text.setText(`${percentage}%`);
     this.expBar.text.setPosition(
-      this.GAME_WIDTH / 2,
-      this.GAME_HEIGHT - this.BAR_PADDING - this.EXP_BAR_HEIGHT / 2
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - this.BAR_PADDING - this.EXP_BAR_HEIGHT / 2
     );
   }
 
   public showLevelUp(): void {
     const levelUpText = this.add.text(
-      this.GAME_WIDTH / 2,
-      this.GAME_HEIGHT / 2,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
       'LEVEL UP!',
       {
         fontFamily: 'Arial',

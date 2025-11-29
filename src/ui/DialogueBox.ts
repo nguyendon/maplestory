@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 
 export interface DialogueLine {
   speaker: string;
@@ -31,10 +32,10 @@ export class DialogueBox extends Phaser.GameObjects.Container {
   private typewriterTimer: Phaser.Time.TimerEvent | null = null;
   private selectedChoice: number = 0;
 
-  private readonly BOX_WIDTH = 700;
-  private readonly BOX_HEIGHT = 140;
+  private readonly BOX_WIDTH = GAME_WIDTH - 100;
+  private readonly BOX_HEIGHT = 150;
   private readonly BOX_X = 50;
-  private readonly BOX_Y = 410;
+  private readonly BOX_Y = GAME_HEIGHT - 200;
   private readonly PADDING = 15;
   private readonly CHARS_PER_SECOND = 40;
 
