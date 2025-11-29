@@ -15,6 +15,7 @@ export class InventoryUI extends Phaser.GameObjects.Container {
 
   private inventory: Inventory | null = null;
   private onItemUse: ((slotIndex: number) => void) | null = null;
+  private onItemEquip: ((slotIndex: number) => void) | null = null;
 
   private readonly PANEL_WIDTH = 280;
   private readonly PANEL_HEIGHT = 340;
@@ -220,6 +221,12 @@ export class InventoryUI extends Phaser.GameObjects.Container {
         if (this.onItemUse) {
           this.onItemUse(index);
         }
+      } else if (pointer.leftButtonDown()) {
+        // Double-click to equip
+        const slot = this.inventory?.getSlot(index);
+        if (slot?.item?.type === ItemType.EQUIP && this.onItemEquip) {
+          this.onItemEquip(index);
+        }
       }
     });
 
@@ -294,6 +301,8 @@ export class InventoryUI extends Phaser.GameObjects.Container {
       if (equip.stats.MP) lines.push({ text: `MP: +${equip.stats.MP}`, color: '#88ccff', size: 11 });
 
       lines.push({ text: `Req. Level: ${equip.levelRequirement}`, color: '#aaaaaa', size: 10 });
+      lines.push({ text: '', color: '#ffffff', size: 4 }); // Spacer
+      lines.push({ text: 'Click to equip', color: '#ffff66', size: 10 });
     }
 
     // Use item info
@@ -380,6 +389,10 @@ export class InventoryUI extends Phaser.GameObjects.Container {
   setInventory(inventory: Inventory): void {
     this.inventory = inventory;
     this.refresh();
+  }
+
+  setOnItemEquip(callback: (slotIndex: number) => void): void {
+    this.onItemEquip = callback;
   }
 
   setOnItemUse(callback: (slotIndex: number) => void): void {

@@ -23,6 +23,9 @@ import { SkillEffects } from '../skills/SkillEffects';
 import { getSkill } from '../skills/SkillData';
 import type { SkillDefinition } from '../skills/SkillData';
 import { InventoryUI } from '../ui/InventoryUI';
+import { EquipmentUI } from '../ui/EquipmentUI';
+import { Equipment } from '../systems/Equipment';
+import { ItemType, EquipSlot, type EquipItem } from '../systems/ItemData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -40,6 +43,7 @@ export class GameScene extends Phaser.Scene {
   // RPG Systems
   private playerStats!: PlayerStats;
   private inventory!: Inventory;
+  private equipment!: Equipment;
 
   // UI Systems
   private dialogueBox!: DialogueBox;
@@ -47,6 +51,7 @@ export class GameScene extends Phaser.Scene {
   private skillConfigUI!: SkillConfigUI;
   private keyboardConfigUI!: KeyboardConfigUI;
   private inventoryUI!: InventoryUI;
+  private equipmentUI!: EquipmentUI;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -80,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     // Initialize RPG systems
     this.playerStats = new PlayerStats(this);
     this.inventory = new Inventory(24);
+    this.equipment = new Equipment();
 
     // Give player starting potions
     this.giveStarterItems();
@@ -178,6 +184,16 @@ export class GameScene extends Phaser.Scene {
         this.showPotionMessage(result.message, false);
       }
     });
+    this.inventoryUI.setOnItemEquip((slotIndex) => {
+      this.equipItemFromInventory(slotIndex);
+    });
+
+    // Create equipment UI
+    this.equipmentUI = new EquipmentUI(this);
+    this.equipmentUI.setEquipment(this.equipment);
+    this.equipmentUI.setOnUnequip((slot) => {
+      this.unequipItem(slot);
+    });
 
     // Set initial skill bindings
     const initialSkillBindings = new Map<string, SkillDefinition>();
@@ -200,6 +216,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('ONE', ACTIONS.HP_POTION);
     initialActionBindings.set('TWO', ACTIONS.MP_POTION);
     initialActionBindings.set('I', ACTIONS.INVENTORY);
+    initialActionBindings.set('E', ACTIONS.EQUIPMENT);
     this.actionBindings = initialActionBindings;
 
     this.keyboardConfigUI.setInitialBindings(initialSkillBindings, initialActionBindings);
@@ -286,7 +303,12 @@ export class GameScene extends Phaser.Scene {
       currentMP: () => this.playerStats.currentMP,
       useMP: (amount: number) => this.playerStats.useMP(amount),
       playerLevel: () => this.playerStats.level,
-      getATK: () => this.playerStats.getATK() + this.skillManager.getBuffBonus('ATK')
+      getATK: () => {
+        const baseATK = this.playerStats.getATK();
+        const equipATK = this.equipment.getTotalStats().ATK || 0;
+        const buffATK = this.skillManager.getBuffBonus('ATK');
+        return baseATK + equipATK + buffATK;
+      }
     });
 
     // Initialize skill effects
@@ -371,8 +393,9 @@ export class GameScene extends Phaser.Scene {
         this.dialogueBox.handleInput('ESC');
         return;
       }
-      if (this.inventoryUI.isOpen) {
+      if (this.inventoryUI.isOpen || this.equipmentUI.isOpen) {
         this.inventoryUI.close();
+        this.equipmentUI.close();
         return;
       }
       if (this.skillConfigUI.isOpen) {
@@ -518,6 +541,21 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'INVENTORY':
         this.inventoryUI.toggle();
+        // Also toggle equipment UI with inventory
+        if (this.inventoryUI.isOpen) {
+          this.equipmentUI.open();
+        } else {
+          this.equipmentUI.close();
+        }
+        break;
+      case 'EQUIPMENT':
+        this.equipmentUI.toggle();
+        // Also toggle inventory UI with equipment
+        if (this.equipmentUI.isOpen) {
+          this.inventoryUI.open();
+        } else {
+          this.inventoryUI.close();
+        }
         break;
       // JUMP and ATTACK are handled directly by the Player class
     }
@@ -1347,5 +1385,130 @@ export class GameScene extends Phaser.Scene {
       ease: 'Quad.easeOut',
       onComplete: () => text.destroy()
     });
+  }
+
+  /**
+   * Equip an item from inventory
+   */
+  private equipItemFromInventory(slotIndex: number): void {
+    const slot = this.inventory.getSlot(slotIndex);
+    if (!slot || !slot.item || slot.item.type !== ItemType.EQUIP) {
+      return;
+    }
+
+    const equipItem = slot.item as EquipItem;
+
+    // Check level requirement
+    const check = this.equipment.canEquip(equipItem, this.playerStats.level);
+    if (!check.canEquip) {
+      this.showPotionMessage(check.reason || 'Cannot equip', false);
+      return;
+    }
+
+    // Remove from inventory
+    this.inventory.removeItem(slotIndex, 1);
+
+    // Equip and get any previously equipped item
+    const previousItem = this.equipment.equip(equipItem);
+
+    // Add previous item back to inventory if there was one
+    if (previousItem) {
+      const overflow = this.inventory.addItem(previousItem, 1);
+      if (overflow > 0) {
+        // Inventory full, swap failed - put the new item back
+        this.equipment.unequip(equipItem.slot);
+        this.inventory.addItem(equipItem, 1);
+        if (previousItem) {
+          this.equipment.equip(previousItem);
+        }
+        this.showPotionMessage('Inventory full', false);
+        return;
+      }
+    }
+
+    // Show equip effect
+    this.showEquipEffect(equipItem.name);
+
+    // Refresh UIs
+    this.inventoryUI.refresh();
+    this.equipmentUI.refresh();
+  }
+
+  /**
+   * Unequip an item to inventory
+   */
+  private unequipItem(slot: EquipSlot): void {
+    const item = this.equipment.getSlot(slot);
+    if (!item) {
+      return;
+    }
+
+    // Check if inventory has space
+    if (this.inventory.isFull()) {
+      this.showPotionMessage('Inventory full', false);
+      return;
+    }
+
+    // Unequip
+    const unequipped = this.equipment.unequip(slot);
+    if (unequipped) {
+      this.inventory.addItem(unequipped, 1);
+      this.showPotionMessage(`Unequipped ${unequipped.name}`, true);
+    }
+
+    // Refresh UIs
+    this.inventoryUI.refresh();
+    this.equipmentUI.refresh();
+  }
+
+  private showEquipEffect(itemName: string): void {
+    // Show floating text
+    const text = this.add.text(this.player.x, this.player.y - 60, `Equipped ${itemName}`, {
+      fontFamily: 'Arial',
+      fontSize: '12px',
+      color: '#88ff88',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    text.setOrigin(0.5);
+    text.setDepth(101);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      duration: 1200,
+      ease: 'Quad.easeOut',
+      onComplete: () => text.destroy()
+    });
+
+    // Sparkle effect
+    for (let i = 0; i < 6; i++) {
+      const sparkle = this.add.graphics();
+      const angle = (i / 6) * Math.PI * 2;
+      const radius = 25;
+
+      sparkle.fillStyle(0xffff88, 1);
+      sparkle.fillCircle(0, 0, 4);
+      sparkle.fillStyle(0xffffff, 0.8);
+      sparkle.fillCircle(-1, -1, 2);
+      sparkle.setPosition(
+        this.player.x + Math.cos(angle) * radius,
+        this.player.y + Math.sin(angle) * radius
+      );
+      sparkle.setDepth(100);
+
+      this.tweens.add({
+        targets: sparkle,
+        x: sparkle.x + Math.cos(angle) * 20,
+        y: sparkle.y + Math.sin(angle) * 20,
+        alpha: 0,
+        scale: 0.5,
+        duration: 500,
+        delay: i * 50,
+        ease: 'Quad.easeOut',
+        onComplete: () => sparkle.destroy()
+      });
+    }
   }
 }
