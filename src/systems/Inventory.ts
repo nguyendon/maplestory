@@ -2,7 +2,8 @@
  * Inventory System
  */
 
-import type { Item } from './ItemData';
+import { type Item, type UseItem, ItemType, UseEffect } from './ItemData';
+import type { PlayerStats } from './CharacterStats';
 
 export interface InventorySlot {
   item: Item | null;
@@ -132,5 +133,120 @@ export class Inventory {
       if (!this.slots[i].item) return i;
     }
     return -1;
+  }
+
+  /**
+   * Use a consumable item from a specific slot
+   * @returns true if item was successfully used
+   */
+  useItem(slotIndex: number, playerStats: PlayerStats): { success: boolean; message: string; effect?: string; value?: number } {
+    const slot = this.getSlot(slotIndex);
+    if (!slot || !slot.item) {
+      return { success: false, message: 'No item in slot' };
+    }
+
+    if (slot.item.type !== ItemType.USE) {
+      return { success: false, message: 'Item cannot be used' };
+    }
+
+    const useItem = slot.item as UseItem;
+    let effectValue = 0;
+    let effectMessage = '';
+
+    switch (useItem.effect) {
+      case UseEffect.HEAL_HP: {
+        const maxHP = playerStats.getMaxHP();
+        const currentHP = playerStats.currentHP;
+
+        if (currentHP >= maxHP) {
+          return { success: false, message: 'HP is already full' };
+        }
+
+        // Negative value means percentage healing
+        if (useItem.value < 0) {
+          effectValue = Math.floor(maxHP * Math.abs(useItem.value) / 100);
+        } else {
+          effectValue = useItem.value;
+        }
+
+        const healed = playerStats.healHP(effectValue);
+        effectMessage = `Recovered ${healed} HP`;
+        break;
+      }
+
+      case UseEffect.HEAL_MP: {
+        const maxMP = playerStats.getMaxMP();
+        const currentMP = playerStats.currentMP;
+
+        if (currentMP >= maxMP) {
+          return { success: false, message: 'MP is already full' };
+        }
+
+        // Negative value means percentage healing
+        if (useItem.value < 0) {
+          effectValue = Math.floor(maxMP * Math.abs(useItem.value) / 100);
+        } else {
+          effectValue = useItem.value;
+        }
+
+        const restored = playerStats.restoreMP(effectValue);
+        effectMessage = `Recovered ${restored} MP`;
+        break;
+      }
+
+      case UseEffect.BUFF_ATK: {
+        // TODO: Implement buff system
+        effectMessage = `ATK increased by ${useItem.value} for ${useItem.duration}s`;
+        break;
+      }
+
+      default:
+        return { success: false, message: 'Unknown item effect' };
+    }
+
+    // Remove the item from inventory
+    this.removeItem(slotIndex, 1);
+
+    return {
+      success: true,
+      message: effectMessage,
+      effect: useItem.effect,
+      value: effectValue
+    };
+  }
+
+  /**
+   * Use a consumable item by its ID (finds first matching item)
+   */
+  useItemById(itemId: string, playerStats: PlayerStats): { success: boolean; message: string; effect?: string; value?: number } {
+    const slotIndex = this.findItemById(itemId);
+    if (slotIndex === -1) {
+      return { success: false, message: `No ${itemId} in inventory` };
+    }
+    return this.useItem(slotIndex, playerStats);
+  }
+
+  /**
+   * Get all consumable items for quick-use slots
+   */
+  getConsumables(): { slotIndex: number; item: UseItem; quantity: number }[] {
+    const consumables: { slotIndex: number; item: UseItem; quantity: number }[] = [];
+
+    for (let i = 0; i < this.size; i++) {
+      const slot = this.slots[i];
+      if (slot.item && slot.item.type === ItemType.USE) {
+        consumables.push({
+          slotIndex: i,
+          item: slot.item as UseItem,
+          quantity: slot.quantity
+        });
+      }
+    }
+
+    return consumables;
+  }
+
+  getAllSlots(): InventorySlot[] {
+    return [...this.slots];
   }
 }

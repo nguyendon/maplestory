@@ -43,6 +43,13 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   private static readonly MAX_LEVEL = 200;
   private static readonly AP_PER_LEVEL = 5;
   private static readonly MAX_CRIT_RATE = 50;
+  private static readonly MP_REGEN_INTERVAL = 3000; // Regen every 3 seconds
+  private static readonly MP_REGEN_AMOUNT = 2; // Base MP regen per tick
+  private static readonly HP_REGEN_INTERVAL = 5000; // Regen every 5 seconds
+  private static readonly HP_REGEN_AMOUNT = 1; // Base HP regen per tick
+
+  private _mpRegenTimer: number = 0;
+  private _hpRegenTimer: number = 0;
 
   constructor(_scene: Phaser.Scene, data?: CharacterStatsData) {
     super();
@@ -202,6 +209,31 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
 
   isAlive(): boolean {
     return this._currentHP > 0;
+  }
+
+  /**
+   * Update method - call this every frame for HP/MP regeneration
+   */
+  update(delta: number): void {
+    // MP Regeneration
+    this._mpRegenTimer += delta;
+    if (this._mpRegenTimer >= PlayerStats.MP_REGEN_INTERVAL) {
+      this._mpRegenTimer = 0;
+      if (this._currentMP < this.getMaxMP()) {
+        const regenAmount = PlayerStats.MP_REGEN_AMOUNT + Math.floor(this._baseStats.INT * 0.2);
+        this.restoreMP(regenAmount);
+      }
+    }
+
+    // HP Regeneration (slower, only when not at full)
+    this._hpRegenTimer += delta;
+    if (this._hpRegenTimer >= PlayerStats.HP_REGEN_INTERVAL) {
+      this._hpRegenTimer = 0;
+      if (this._currentHP < this.getMaxHP() && this._currentHP > 0) {
+        const regenAmount = PlayerStats.HP_REGEN_AMOUNT + Math.floor(this._baseStats.STR * 0.1);
+        this.healHP(regenAmount);
+      }
+    }
   }
 
   // Serialization

@@ -109,6 +109,45 @@ export const ITEM_DATABASE: Record<string, Item> = {
     effect: UseEffect.HEAL_MP,
     value: 30
   },
+  'white_potion': {
+    id: 'white_potion',
+    name: 'White Potion',
+    description: 'Restores 150 HP',
+    type: ItemType.USE,
+    rarity: ItemRarity.UNCOMMON,
+    stackable: true,
+    maxStack: 100,
+    sellPrice: 50,
+    icon: 'icon_white_potion',
+    effect: UseEffect.HEAL_HP,
+    value: 150
+  },
+  'mana_elixir': {
+    id: 'mana_elixir',
+    name: 'Mana Elixir',
+    description: 'Restores 100 MP',
+    type: ItemType.USE,
+    rarity: ItemRarity.UNCOMMON,
+    stackable: true,
+    maxStack: 100,
+    sellPrice: 80,
+    icon: 'icon_mana_elixir',
+    effect: UseEffect.HEAL_MP,
+    value: 100
+  },
+  'elixir': {
+    id: 'elixir',
+    name: 'Elixir',
+    description: 'Restores 50% HP and MP',
+    type: ItemType.USE,
+    rarity: ItemRarity.RARE,
+    stackable: true,
+    maxStack: 50,
+    sellPrice: 200,
+    icon: 'icon_elixir',
+    effect: UseEffect.HEAL_HP,
+    value: -50 // Negative value means percentage
+  },
 
   // Equipment
   'wooden_sword': {
