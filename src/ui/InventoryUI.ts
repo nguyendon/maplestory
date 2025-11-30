@@ -1,17 +1,26 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 import { Inventory, type InventorySlot } from '../systems/Inventory';
-import { ItemType, ItemRarity, type Item, type EquipItem, type UseItem } from '../systems/ItemData';
+import { ItemType, type Item, type EquipItem, type UseItem } from '../systems/ItemData';
+import {
+  UI_COLORS,
+  drawPanel,
+  drawSlot,
+  drawTooltip,
+  drawCoinIcon,
+  drawDivider,
+  createCloseButton,
+  getTitleStyle,
+  getRarityColor,
+} from './UITheme';
 
 export class InventoryUI extends Phaser.GameObjects.Container {
   private panel!: Phaser.GameObjects.Graphics;
-  private titleBar!: Phaser.GameObjects.Graphics;
   private titleText!: Phaser.GameObjects.Text;
-  private closeButton!: Phaser.GameObjects.Text;
-  private mesosText!: Phaser.GameObjects.Text;
 
   private slotContainers: Phaser.GameObjects.Container[] = [];
   private tooltip!: Phaser.GameObjects.Container;
+  private mesosText!: Phaser.GameObjects.Text;
 
   private inventory: Inventory | null = null;
   private onItemUse: ((slotIndex: number) => void) | null = null;
@@ -41,103 +50,51 @@ export class InventoryUI extends Phaser.GameObjects.Container {
   private createPanel(): void {
     // Main panel background
     this.panel = this.scene.add.graphics();
-    this.panel.fillStyle(0x1a1a2e, 0.95);
-    this.panel.fillRoundedRect(
-      -this.PANEL_WIDTH / 2,
-      -this.PANEL_HEIGHT / 2,
-      this.PANEL_WIDTH,
-      this.PANEL_HEIGHT,
-      8
-    );
-
-    // Border
-    this.panel.lineStyle(2, 0x4a4a6a, 1);
-    this.panel.strokeRoundedRect(
-      -this.PANEL_WIDTH / 2,
-      -this.PANEL_HEIGHT / 2,
-      this.PANEL_WIDTH,
-      this.PANEL_HEIGHT,
-      8
-    );
-
-    // Inner border highlight
-    this.panel.lineStyle(1, 0x6a6a8a, 0.5);
-    this.panel.strokeRoundedRect(
-      -this.PANEL_WIDTH / 2 + 2,
-      -this.PANEL_HEIGHT / 2 + 2,
-      this.PANEL_WIDTH - 4,
-      this.PANEL_HEIGHT - 4,
-      6
-    );
+    drawPanel(this.panel, -this.PANEL_WIDTH / 2, -this.PANEL_HEIGHT / 2, this.PANEL_WIDTH, this.PANEL_HEIGHT);
     this.add(this.panel);
-
-    // Title bar
-    this.titleBar = this.scene.add.graphics();
-    this.titleBar.fillStyle(0x2a2a4a, 1);
-    this.titleBar.fillRoundedRect(
-      -this.PANEL_WIDTH / 2 + 4,
-      -this.PANEL_HEIGHT / 2 + 4,
-      this.PANEL_WIDTH - 8,
-      28,
-      { tl: 6, tr: 6, bl: 0, br: 0 }
-    );
-    this.add(this.titleBar);
 
     // Title text
     this.titleText = this.scene.add.text(
       -this.PANEL_WIDTH / 2 + 15,
-      -this.PANEL_HEIGHT / 2 + 10,
+      -this.PANEL_HEIGHT / 2 + 9,
       'Inventory',
-      {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }
+      getTitleStyle()
     );
     this.add(this.titleText);
 
     // Close button
-    this.closeButton = this.scene.add.text(
-      this.PANEL_WIDTH / 2 - 20,
-      -this.PANEL_HEIGHT / 2 + 8,
-      '✕',
-      {
-        fontFamily: 'Arial',
-        fontSize: '16px',
-        color: '#888888'
-      }
+    const closeBtn = createCloseButton(
+      this.scene,
+      this.PANEL_WIDTH / 2 - 15,
+      -this.PANEL_HEIGHT / 2 + 16,
+      () => this.close()
     );
-    this.closeButton.setInteractive({ useHandCursor: true });
-    this.closeButton.on('pointerover', () => this.closeButton.setColor('#ff6666'));
-    this.closeButton.on('pointerout', () => this.closeButton.setColor('#888888'));
-    this.closeButton.on('pointerdown', () => this.close());
-    this.add(this.closeButton);
+    this.add(closeBtn);
 
-    // Mesos display
+    // Mesos display area
     const mesosY = this.PANEL_HEIGHT / 2 - 35;
 
-    // Mesos icon (coin)
-    const coinIcon = this.scene.add.graphics();
-    coinIcon.fillStyle(0xffd700, 1);
-    coinIcon.fillCircle(-this.PANEL_WIDTH / 2 + 25, mesosY, 8);
-    coinIcon.fillStyle(0xffec8b, 1);
-    coinIcon.fillCircle(-this.PANEL_WIDTH / 2 + 23, mesosY - 2, 3);
-    coinIcon.lineStyle(1, 0xb8860b, 1);
-    coinIcon.strokeCircle(-this.PANEL_WIDTH / 2 + 25, mesosY, 8);
-    this.add(coinIcon);
+    // Mesos icon
+    const coinGraphics = this.scene.add.graphics();
+    drawCoinIcon(coinGraphics, -this.PANEL_WIDTH / 2 + 25, mesosY, 14);
+    this.add(coinGraphics);
 
     this.mesosText = this.scene.add.text(
       -this.PANEL_WIDTH / 2 + 40,
-      mesosY - 8,
+      mesosY - 7,
       '0 mesos',
       {
         fontFamily: 'Arial',
-        fontSize: '13px',
-        color: '#ffd700'
+        fontSize: '12px',
+        color: UI_COLORS.textGold
       }
     );
     this.add(this.mesosText);
+
+    // Divider above mesos
+    const dividerGraphics = this.scene.add.graphics();
+    drawDivider(dividerGraphics, -this.PANEL_WIDTH / 2 + 10, mesosY - 20, this.PANEL_WIDTH - 20);
+    this.add(dividerGraphics);
   }
 
   private createSlots(): void {
@@ -162,13 +119,10 @@ export class InventoryUI extends Phaser.GameObjects.Container {
 
     // Slot background
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x0a0a1a, 1);
-    bg.fillRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-    bg.lineStyle(1, 0x3a3a5a, 1);
-    bg.strokeRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
+    drawSlot(bg, 0, 0, this.SLOT_SIZE, false, true);
     container.add(bg);
 
-    // Item icon placeholder (will be replaced when item exists)
+    // Item icon placeholder
     const icon = this.scene.add.graphics();
     icon.setName('icon');
     container.add(icon);
@@ -197,32 +151,22 @@ export class InventoryUI extends Phaser.GameObjects.Container {
 
     hitArea.on('pointerover', () => {
       bg.clear();
-      bg.fillStyle(0x1a1a3a, 1);
-      bg.fillRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-      bg.lineStyle(2, 0x6a6aaa, 1);
-      bg.strokeRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-
+      drawSlot(bg, 0, 0, this.SLOT_SIZE, true, !this.inventory?.getSlot(index)?.item);
       this.showTooltip(index, x, y);
     });
 
     hitArea.on('pointerout', () => {
       bg.clear();
-      bg.fillStyle(0x0a0a1a, 1);
-      bg.fillRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-      bg.lineStyle(1, 0x3a3a5a, 1);
-      bg.strokeRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-
+      drawSlot(bg, 0, 0, this.SLOT_SIZE, false, !this.inventory?.getSlot(index)?.item);
       this.hideTooltip();
     });
 
     hitArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.rightButtonDown()) {
-        // Right-click to use consumable
         if (this.onItemUse) {
           this.onItemUse(index);
         }
       } else if (pointer.leftButtonDown()) {
-        // Double-click to equip
         const slot = this.inventory?.getSlot(index);
         if (slot?.item?.type === ItemType.EQUIP && this.onItemEquip) {
           this.onItemEquip(index);
@@ -259,17 +203,9 @@ export class InventoryUI extends Phaser.GameObjects.Container {
     const lines: { text: string; color: string; size: number; bold?: boolean }[] = [];
 
     // Item name with rarity color
-    const rarityColors: Record<string, string> = {
-      [ItemRarity.COMMON]: '#ffffff',
-      [ItemRarity.UNCOMMON]: '#00ff00',
-      [ItemRarity.RARE]: '#00bfff',
-      [ItemRarity.EPIC]: '#9932cc',
-      [ItemRarity.LEGENDARY]: '#ffa500'
-    };
-
     lines.push({
       text: item.name,
-      color: rarityColors[item.rarity] || '#ffffff',
+      color: getRarityColor(item.rarity),
       size: 13,
       bold: true
     });
@@ -281,43 +217,43 @@ export class InventoryUI extends Phaser.GameObjects.Container {
       [ItemType.ETC]: 'Etc',
       [ItemType.SETUP]: 'Setup'
     };
-    lines.push({ text: typeLabels[item.type] || item.type, color: '#888888', size: 10 });
+    lines.push({ text: typeLabels[item.type] || item.type, color: UI_COLORS.textGray, size: 10 });
 
     // Description
-    lines.push({ text: item.description, color: '#cccccc', size: 11 });
+    lines.push({ text: item.description, color: UI_COLORS.textWhite, size: 11 });
 
     // Equipment stats
     if (item.type === ItemType.EQUIP) {
       const equip = item as EquipItem;
-      lines.push({ text: '', color: '#ffffff', size: 6 }); // Spacer
+      lines.push({ text: '', color: '#ffffff', size: 6 });
 
-      if (equip.stats.ATK) lines.push({ text: `ATK: +${equip.stats.ATK}`, color: '#ff6666', size: 11 });
-      if (equip.stats.DEF) lines.push({ text: `DEF: +${equip.stats.DEF}`, color: '#6666ff', size: 11 });
+      if (equip.stats.ATK) lines.push({ text: `ATK: +${equip.stats.ATK}`, color: '#ff6b6b', size: 11 });
+      if (equip.stats.DEF) lines.push({ text: `DEF: +${equip.stats.DEF}`, color: '#6bb5ff', size: 11 });
       if (equip.stats.STR) lines.push({ text: `STR: +${equip.stats.STR}`, color: '#ffcc66', size: 11 });
-      if (equip.stats.DEX) lines.push({ text: `DEX: +${equip.stats.DEX}`, color: '#66ff66', size: 11 });
+      if (equip.stats.DEX) lines.push({ text: `DEX: +${equip.stats.DEX}`, color: '#66ff99', size: 11 });
       if (equip.stats.INT) lines.push({ text: `INT: +${equip.stats.INT}`, color: '#66ccff', size: 11 });
-      if (equip.stats.LUK) lines.push({ text: `LUK: +${equip.stats.LUK}`, color: '#ff66ff', size: 11 });
+      if (equip.stats.LUK) lines.push({ text: `LUK: +${equip.stats.LUK}`, color: '#ff99ff', size: 11 });
       if (equip.stats.HP) lines.push({ text: `HP: +${equip.stats.HP}`, color: '#ff8888', size: 11 });
       if (equip.stats.MP) lines.push({ text: `MP: +${equip.stats.MP}`, color: '#88ccff', size: 11 });
 
-      lines.push({ text: `Req. Level: ${equip.levelRequirement}`, color: '#aaaaaa', size: 10 });
-      lines.push({ text: '', color: '#ffffff', size: 4 }); // Spacer
-      lines.push({ text: 'Click to equip', color: '#ffff66', size: 10 });
+      lines.push({ text: `Req. Level: ${equip.levelRequirement}`, color: UI_COLORS.textGray, size: 10 });
+      lines.push({ text: '', color: '#ffffff', size: 4 });
+      lines.push({ text: 'Click to equip', color: UI_COLORS.textYellow, size: 10 });
     }
 
     // Use item info
     if (item.type === ItemType.USE) {
       const useItem = item as UseItem;
       if (useItem.duration) {
-        lines.push({ text: `Duration: ${useItem.duration}s`, color: '#aaaaaa', size: 10 });
+        lines.push({ text: `Duration: ${useItem.duration}s`, color: UI_COLORS.textGray, size: 10 });
       }
-      lines.push({ text: '', color: '#ffffff', size: 4 }); // Spacer
-      lines.push({ text: 'Right-click to use', color: '#ffff66', size: 10 });
+      lines.push({ text: '', color: '#ffffff', size: 4 });
+      lines.push({ text: 'Right-click to use', color: UI_COLORS.textYellow, size: 10 });
     }
 
     // Sell price
-    lines.push({ text: '', color: '#ffffff', size: 4 }); // Spacer
-    lines.push({ text: `Sell: ${item.sellPrice} mesos`, color: '#ffd700', size: 10 });
+    lines.push({ text: '', color: '#ffffff', size: 4 });
+    lines.push({ text: `Sell: ${item.sellPrice} mesos`, color: UI_COLORS.textGold, size: 10 });
 
     // Calculate tooltip dimensions
     let maxWidth = 0;
@@ -338,10 +274,7 @@ export class InventoryUI extends Phaser.GameObjects.Container {
 
     // Background
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x1a1a2e, 0.95);
-    bg.fillRoundedRect(0, 0, tooltipWidth, tooltipHeight, 6);
-    bg.lineStyle(1, 0x4a4a6a, 1);
-    bg.strokeRoundedRect(0, 0, tooltipWidth, tooltipHeight, 6);
+    drawTooltip(bg, 0, 0, tooltipWidth, tooltipHeight);
     this.tooltip.add(bg);
 
     // Text content
@@ -367,7 +300,6 @@ export class InventoryUI extends Phaser.GameObjects.Container {
     let tooltipX = worldX + this.SLOT_SIZE / 2 + 10;
     let tooltipY = worldY - tooltipHeight / 2;
 
-    // Keep tooltip on screen
     if (tooltipX + tooltipWidth > GAME_WIDTH - 10) {
       tooltipX = worldX - this.SLOT_SIZE / 2 - tooltipWidth - 10;
     }
@@ -437,7 +369,6 @@ export class InventoryUI extends Phaser.GameObjects.Container {
     const size = this.SLOT_SIZE - 8;
     const halfSize = size / 2;
 
-    // Draw different icons based on item type
     switch (item.type) {
       case ItemType.USE:
         this.drawPotionIcon(graphics, item, halfSize);
@@ -449,14 +380,12 @@ export class InventoryUI extends Phaser.GameObjects.Container {
         this.drawEtcIcon(graphics, item, halfSize);
         break;
       default:
-        // Generic item
         graphics.fillStyle(0x666666, 1);
         graphics.fillRect(-halfSize, -halfSize, size, size);
     }
   }
 
   private drawPotionIcon(graphics: Phaser.GameObjects.Graphics, item: Item, halfSize: number): void {
-    // Potion colors based on item ID
     let potionColor = 0xff6666;
     let highlightColor = 0xffaaaa;
 
@@ -496,45 +425,34 @@ export class InventoryUI extends Phaser.GameObjects.Container {
     const slot = item.slot;
 
     if (slot === 'weapon') {
-      // Sword
       graphics.fillStyle(0xaaaaaa, 1);
       graphics.fillRect(-halfSize * 0.15, -halfSize * 0.8, halfSize * 0.3, halfSize * 1.2);
-
-      // Handle
       graphics.fillStyle(0x8b4513, 1);
       graphics.fillRect(-halfSize * 0.25, halfSize * 0.3, halfSize * 0.5, halfSize * 0.4);
-
-      // Guard
       graphics.fillStyle(0xffd700, 1);
       graphics.fillRect(-halfSize * 0.4, halfSize * 0.2, halfSize * 0.8, halfSize * 0.15);
     } else if (slot === 'hat') {
-      // Hat
       graphics.fillStyle(0x4444aa, 1);
       graphics.fillRoundedRect(-halfSize * 0.6, -halfSize * 0.3, halfSize * 1.2, halfSize * 0.8, 4);
       graphics.fillRect(-halfSize * 0.8, halfSize * 0.3, halfSize * 1.6, halfSize * 0.2);
     } else {
-      // Generic armor piece
       graphics.fillStyle(0x666688, 1);
       graphics.fillRoundedRect(-halfSize * 0.5, -halfSize * 0.5, halfSize, halfSize, 4);
     }
   }
 
   private drawEtcIcon(graphics: Phaser.GameObjects.Graphics, item: Item, halfSize: number): void {
-    // Different ETC items
     if (item.id.includes('slime')) {
-      // Slime drop
       graphics.fillStyle(0x66cc66, 0.8);
       graphics.fillCircle(0, 0, halfSize * 0.6);
       graphics.fillStyle(0x88ff88, 0.6);
       graphics.fillCircle(-halfSize * 0.2, -halfSize * 0.2, halfSize * 0.2);
     } else if (item.id.includes('mushroom')) {
-      // Mushroom cap
       graphics.fillStyle(0xff8844, 1);
       graphics.fillCircle(0, -halfSize * 0.1, halfSize * 0.5);
       graphics.fillStyle(0xffaa66, 1);
       graphics.fillCircle(-halfSize * 0.15, -halfSize * 0.25, halfSize * 0.15);
     } else {
-      // Generic etc item
       graphics.fillStyle(0x888888, 1);
       graphics.fillCircle(0, 0, halfSize * 0.5);
     }

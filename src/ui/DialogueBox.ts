@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
+import { UI_COLORS, drawPanel } from './UITheme';
 
 export interface DialogueLine {
   speaker: string;
@@ -23,6 +24,7 @@ export class DialogueBox extends Phaser.GameObjects.Container {
   private dialogueText: Phaser.GameObjects.Text;
   private continuePrompt: Phaser.GameObjects.Text;
   private choiceTexts: Phaser.GameObjects.Text[] = [];
+  private speakerBox: Phaser.GameObjects.Graphics;
 
   private currentDialogue: DialogueData | null = null;
   private currentLineIndex: number = 0;
@@ -33,10 +35,10 @@ export class DialogueBox extends Phaser.GameObjects.Container {
   private selectedChoice: number = 0;
 
   private readonly BOX_WIDTH = GAME_WIDTH - 100;
-  private readonly BOX_HEIGHT = 150;
+  private readonly BOX_HEIGHT = 140;
   private readonly BOX_X = 50;
-  private readonly BOX_Y = GAME_HEIGHT - 200;
-  private readonly PADDING = 15;
+  private readonly BOX_Y = GAME_HEIGHT - 190;
+  private readonly PADDING = 20;
   private readonly CHARS_PER_SECOND = 40;
 
   public isOpen: boolean = false;
@@ -49,38 +51,45 @@ export class DialogueBox extends Phaser.GameObjects.Container {
     this.drawBackground();
     this.add(this.background);
 
+    // Speaker name box
+    this.speakerBox = scene.add.graphics();
+    this.add(this.speakerBox);
+
     // Speaker name
-    this.speakerText = scene.add.text(this.BOX_X + this.PADDING, this.BOX_Y + 10, '', {
+    this.speakerText = scene.add.text(this.BOX_X + this.PADDING + 5, this.BOX_Y - 8, '', {
       fontFamily: 'Arial',
-      fontSize: '14px',
-      color: '#ffff00',
-      fontStyle: 'bold'
+      fontSize: '13px',
+      color: UI_COLORS.textBrown,
+      fontStyle: 'bold',
+      stroke: '#f5e6c8',
+      strokeThickness: 2
     });
     this.add(this.speakerText);
 
-    // Dialogue text
+    // Dialogue text (dark text on light background)
     this.dialogueText = scene.add.text(
       this.BOX_X + this.PADDING,
-      this.BOX_Y + 35,
+      this.BOX_Y + 25,
       '',
       {
         fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#ffffff',
-        wordWrap: { width: this.BOX_WIDTH - this.PADDING * 2 }
+        fontSize: '13px',
+        color: UI_COLORS.textDark,
+        wordWrap: { width: this.BOX_WIDTH - this.PADDING * 2 },
+        lineSpacing: 4
       }
     );
     this.add(this.dialogueText);
 
     // Continue prompt
     this.continuePrompt = scene.add.text(
-      this.BOX_X + this.BOX_WIDTH - this.PADDING - 80,
+      this.BOX_X + this.BOX_WIDTH - this.PADDING - 90,
       this.BOX_Y + this.BOX_HEIGHT - 25,
       '[SPACE] Continue',
       {
         fontFamily: 'Arial',
-        fontSize: '11px',
-        color: '#aaaaaa'
+        fontSize: '10px',
+        color: UI_COLORS.textGray
       }
     );
     this.add(this.continuePrompt);
@@ -88,7 +97,7 @@ export class DialogueBox extends Phaser.GameObjects.Container {
     // Add blinking animation to continue prompt
     scene.tweens.add({
       targets: this.continuePrompt,
-      alpha: 0.3,
+      alpha: 0.4,
       duration: 800,
       ease: 'Sine.easeInOut',
       yoyo: true,
@@ -103,23 +112,54 @@ export class DialogueBox extends Phaser.GameObjects.Container {
   private drawBackground(): void {
     this.background.clear();
 
-    // Main box background
-    this.background.fillStyle(0x1a1a2e, 0.95);
-    this.background.fillRoundedRect(this.BOX_X, this.BOX_Y, this.BOX_WIDTH, this.BOX_HEIGHT, 8);
+    // Outer shadow
+    this.background.fillStyle(0x000000, 0.4);
+    this.background.fillRoundedRect(this.BOX_X + 4, this.BOX_Y + 4, this.BOX_WIDTH, this.BOX_HEIGHT, 6);
+
+    // Draw panel using theme
+    drawPanel(this.background, this.BOX_X, this.BOX_Y, this.BOX_WIDTH, this.BOX_HEIGHT, { hasTitle: false });
+
+    // Decorative lines on sides
+    this.background.lineStyle(1, UI_COLORS.borderGold, 0.3);
+
+    // Left decorative element
+    this.background.beginPath();
+    this.background.moveTo(this.BOX_X + 10, this.BOX_Y + 15);
+    this.background.lineTo(this.BOX_X + 10, this.BOX_Y + this.BOX_HEIGHT - 15);
+    this.background.strokePath();
+
+    // Right decorative element
+    this.background.beginPath();
+    this.background.moveTo(this.BOX_X + this.BOX_WIDTH - 10, this.BOX_Y + 15);
+    this.background.lineTo(this.BOX_X + this.BOX_WIDTH - 10, this.BOX_Y + this.BOX_HEIGHT - 15);
+    this.background.strokePath();
+  }
+
+  private drawSpeakerBox(speakerName: string): void {
+    this.speakerBox.clear();
+
+    if (!speakerName) return;
+
+    // Calculate speaker box width based on text
+    const tempText = this.scene.add.text(0, 0, speakerName, { fontSize: '13px', fontStyle: 'bold' });
+    const textWidth = tempText.width + 20;
+    tempText.destroy();
+
+    const boxHeight = 22;
+    const boxX = this.BOX_X + this.PADDING;
+    const boxY = this.BOX_Y - boxHeight / 2 - 4;
+
+    // Speaker name background - tan/gold tab
+    this.speakerBox.fillStyle(UI_COLORS.titleBarBg, 1);
+    this.speakerBox.fillRoundedRect(boxX, boxY, textWidth, boxHeight, 4);
 
     // Border
-    this.background.lineStyle(2, 0x4a4a6a, 1);
-    this.background.strokeRoundedRect(this.BOX_X, this.BOX_Y, this.BOX_WIDTH, this.BOX_HEIGHT, 8);
+    this.speakerBox.lineStyle(1, UI_COLORS.borderOuter, 1);
+    this.speakerBox.strokeRoundedRect(boxX, boxY, textWidth, boxHeight, 4);
 
-    // Inner highlight
-    this.background.lineStyle(1, 0x6a6a8a, 0.5);
-    this.background.strokeRoundedRect(
-      this.BOX_X + 2,
-      this.BOX_Y + 2,
-      this.BOX_WIDTH - 4,
-      this.BOX_HEIGHT - 4,
-      6
-    );
+    // Highlight on top
+    this.speakerBox.fillStyle(0xffffff, 0.3);
+    this.speakerBox.fillRect(boxX + 4, boxY + 2, textWidth - 8, 2);
   }
 
   public openDialogue(dialogue: DialogueData): void {
@@ -150,6 +190,7 @@ export class DialogueBox extends Phaser.GameObjects.Container {
 
     const line = this.currentDialogue.lines[this.currentLineIndex];
     this.speakerText.setText(line.speaker);
+    this.drawSpeakerBox(line.speaker);
     this.fullText = line.text;
     this.displayedChars = 0;
     this.dialogueText.setText('');
@@ -190,14 +231,16 @@ export class DialogueBox extends Phaser.GameObjects.Container {
     this.selectedChoice = 0;
 
     choices.forEach((choice, index) => {
+      const isSelected = index === this.selectedChoice;
       const choiceText = this.scene.add.text(
-        this.BOX_X + this.PADDING + 20,
-        this.BOX_Y + 75 + index * 20,
-        `${index === this.selectedChoice ? '▶ ' : '   '}${choice.text}`,
+        this.BOX_X + this.PADDING + 15,
+        this.BOX_Y + 70 + index * 22,
+        `${isSelected ? '>' : '  '} ${choice.text}`,
         {
           fontFamily: 'Arial',
-          fontSize: '13px',
-          color: index === this.selectedChoice ? '#ffff00' : '#ffffff'
+          fontSize: '12px',
+          color: isSelected ? UI_COLORS.textGold : UI_COLORS.textDark,
+          fontStyle: isSelected ? 'bold' : 'normal'
         }
       );
       this.choiceTexts.push(choiceText);
@@ -217,8 +260,10 @@ export class DialogueBox extends Phaser.GameObjects.Container {
 
     this.choiceTexts.forEach((text, index) => {
       const choice = line.choices![index];
-      text.setText(`${index === this.selectedChoice ? '▶ ' : '   '}${choice.text}`);
-      text.setColor(index === this.selectedChoice ? '#ffff00' : '#ffffff');
+      const isSelected = index === this.selectedChoice;
+      text.setText(`${isSelected ? '>' : '  '} ${choice.text}`);
+      text.setColor(isSelected ? UI_COLORS.textGold : UI_COLORS.textDark);
+      text.setFontStyle(isSelected ? 'bold' : 'normal');
     });
   }
 

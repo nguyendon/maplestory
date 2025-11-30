@@ -1128,6 +1128,13 @@ export class GameScene extends Phaser.Scene {
   private setupInteractionKeys(): void {
     // NPC interaction is now handled via action bindings
 
+    // Keyboard config hotkey (backslash key)
+    this.input.keyboard?.on('keydown-BACK_SLASH', () => {
+      if (!this.dialogueBox.isOpen) {
+        this.keyboardConfigUI.toggle();
+      }
+    });
+
     // Portal interaction key (UP arrow when near portal)
     this.input.keyboard?.on('keydown-UP', () => {
       if (this.dialogueBox.isOpen) return;

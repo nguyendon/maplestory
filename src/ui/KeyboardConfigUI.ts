@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import type { SkillDefinition } from '../skills/SkillData';
-import { getSkillsForJobAndLevel, SKILLS } from '../skills/SkillData';
+import { SKILLS } from '../skills/SkillData';
 import { JobId, getJob } from '../systems/JobData';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
+import { UI_COLORS, drawPanel, createCloseButton, getTitleStyle } from './UITheme';
 
-// Action definitions for non-skill bindings
 export interface ActionDefinition {
   id: string;
   name: string;
@@ -15,10 +15,10 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   JUMP: { id: 'JUMP', name: 'Jump', color: 0x4466aa },
   ATTACK: { id: 'ATTACK', name: 'Attack', color: 0xaa4444 },
   PICKUP: { id: 'PICKUP', name: 'Pick Up', color: 0x44aa44 },
-  SKILL_BAR: { id: 'SKILL_BAR', name: 'Skill Bar', color: 0x666688 },
+  SKILL_BAR: { id: 'SKILL_BAR', name: 'Skills', color: 0x666688 },
   INTERACT: { id: 'INTERACT', name: 'Interact', color: 0xaa8844 },
-  HP_POTION: { id: 'HP_POTION', name: 'HP Potion', color: 0xff6b6b },
-  MP_POTION: { id: 'MP_POTION', name: 'MP Potion', color: 0x4ecdc4 },
+  HP_POTION: { id: 'HP_POTION', name: 'HP Pot', color: 0xff6b6b },
+  MP_POTION: { id: 'MP_POTION', name: 'MP Pot', color: 0x4ecdc4 },
   INVENTORY: { id: 'INVENTORY', name: 'Inventory', color: 0x8b4513 },
   EQUIPMENT: { id: 'EQUIPMENT', name: 'Equip', color: 0x4a6fa5 },
   SAVE: { id: 'SAVE', name: 'Save', color: 0x228b22 },
@@ -47,27 +47,24 @@ function isAction(binding: BindingType): binding is ActionDefinition {
   return !('mpCost' in binding);
 }
 
-// Tab types for organizing skills/actions
 type TabType = 'beginner' | 'job1' | 'actions';
 
 export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private overlay!: Phaser.GameObjects.Graphics;
   private panel!: Phaser.GameObjects.Graphics;
   private titleText!: Phaser.GameObjects.Text;
-  private closeButton!: Phaser.GameObjects.Text;
   private instructionText!: Phaser.GameObjects.Text;
 
   private keySlots: KeySlot[] = [];
   private bindingButtons: { container: Phaser.GameObjects.Container; binding: BindingType; bg: Phaser.GameObjects.Graphics; width: number; height: number }[] = [];
 
-  // Selection state
   private selectedBinding: BindingType | null = null;
   private selectedBindingButton: Phaser.GameObjects.Container | null = null;
 
-  private readonly PANEL_WIDTH = 750;
-  private readonly PANEL_HEIGHT = 520;
-  private readonly KEY_SIZE = 40;
-  private readonly KEY_SPACING = 4;
+  private readonly PANEL_WIDTH = 620;
+  private readonly PANEL_HEIGHT = 480;
+  private readonly KEY_SIZE = 36;
+  private readonly KEY_SPACING = 3;
 
   public isOpen: boolean = false;
 
@@ -80,11 +77,10 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private currentJob: JobId = JobId.BEGINNER;
   private currentLevel: number = 1;
 
-  // Tab system
   private currentTab: TabType = 'beginner';
   private tabs: { type: TabType; label: string; button: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Graphics }[] = [];
   private skillsContainer!: Phaser.GameObjects.Container;
-  private tabContentY: number = 0;
+  private contentAreaY: number = 0;
 
   constructor(scene: Phaser.Scene) {
     super(scene, GAME_WIDTH / 2, GAME_HEIGHT / 2);
@@ -103,104 +99,74 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private createPanel(): void {
     // Dark overlay
     this.overlay = this.scene.add.graphics();
-    this.overlay.fillStyle(0x000000, 0.7);
+    this.overlay.fillStyle(0x000000, 0.75);
     this.overlay.fillRect(-GAME_WIDTH / 2, -GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT);
     this.add(this.overlay);
 
-    // Main panel - MapleStory dark brown/orange style
+    // Main panel using theme
     this.panel = this.scene.add.graphics();
-
-    // Outer border
-    this.panel.fillStyle(0x4a3728, 1);
-    this.panel.fillRoundedRect(-this.PANEL_WIDTH / 2 - 4, -this.PANEL_HEIGHT / 2 - 4, this.PANEL_WIDTH + 8, this.PANEL_HEIGHT + 8, 8);
-
-    // Main panel background
-    this.panel.fillStyle(0x2a2218, 0.98);
-    this.panel.fillRoundedRect(-this.PANEL_WIDTH / 2, -this.PANEL_HEIGHT / 2, this.PANEL_WIDTH, this.PANEL_HEIGHT, 6);
-
-    // Inner highlight
-    this.panel.lineStyle(2, 0x6a5738, 1);
-    this.panel.strokeRoundedRect(-this.PANEL_WIDTH / 2 + 2, -this.PANEL_HEIGHT / 2 + 2, this.PANEL_WIDTH - 4, this.PANEL_HEIGHT - 4, 4);
+    drawPanel(this.panel, -this.PANEL_WIDTH / 2, -this.PANEL_HEIGHT / 2, this.PANEL_WIDTH, this.PANEL_HEIGHT);
     this.add(this.panel);
 
-    // Title bar
-    const titleBar = this.scene.add.graphics();
-    titleBar.fillStyle(0x4a3728, 1);
-    titleBar.fillRect(-this.PANEL_WIDTH / 2 + 10, -this.PANEL_HEIGHT / 2 + 10, this.PANEL_WIDTH - 20, 30);
-    this.add(titleBar);
-
     // Title
-    this.titleText = this.scene.add.text(0, -this.PANEL_HEIGHT / 2 + 25, 'KEY CONFIGURATION', {
-      fontFamily: 'Arial',
-      fontSize: '16px',
-      color: '#ffd700',
-      fontStyle: 'bold'
-    });
+    this.titleText = this.scene.add.text(0, -this.PANEL_HEIGHT / 2 + 16, 'Key Configuration', getTitleStyle());
     this.titleText.setOrigin(0.5);
     this.add(this.titleText);
 
     // Close button
-    this.closeButton = this.scene.add.text(this.PANEL_WIDTH / 2 - 25, -this.PANEL_HEIGHT / 2 + 25, 'X', {
-      fontFamily: 'Arial',
-      fontSize: '20px',
-      color: '#ff6666',
-      fontStyle: 'bold'
-    });
-    this.closeButton.setOrigin(0.5);
-    this.closeButton.setInteractive({ useHandCursor: true });
-    this.closeButton.on('pointerover', () => this.closeButton.setColor('#ff9999'));
-    this.closeButton.on('pointerout', () => this.closeButton.setColor('#ff6666'));
-    this.closeButton.on('pointerdown', () => this.close());
-    this.add(this.closeButton);
+    const closeBtn = createCloseButton(this.scene, this.PANEL_WIDTH / 2 - 20, -this.PANEL_HEIGHT / 2 + 16, () => this.close());
+    this.add(closeBtn);
 
     // Instructions
-    this.instructionText = this.scene.add.text(0, -this.PANEL_HEIGHT / 2 + 52,
-      'Click a skill/action, then click a key to assign. Right-click key to clear.', {
-      fontFamily: 'Arial',
-      fontSize: '11px',
-      color: '#aaaaaa'
-    });
+    this.instructionText = this.scene.add.text(0, -this.PANEL_HEIGHT / 2 + 42,
+      'Select skill/action, then click a key. Right-click to clear.', {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: UI_COLORS.textGray
+      });
     this.instructionText.setOrigin(0.5);
     this.add(this.instructionText);
   }
 
   private createKeyboard(): void {
-    const startY = -this.PANEL_HEIGHT / 2 + 75;
+    const startY = -this.PANEL_HEIGHT / 2 + 60;
 
-    // Keyboard section label
-    const keyboardLabel = this.scene.add.text(-this.PANEL_WIDTH / 2 + 20, startY - 5, 'KEYBOARD', {
+    // Keyboard section
+    const sectionLabel = this.scene.add.text(-this.PANEL_WIDTH / 2 + 20, startY, 'Keyboard', {
       fontFamily: 'Arial',
-      fontSize: '11px',
-      color: '#888888',
+      fontSize: '10px',
+      color: UI_COLORS.textBrown,
       fontStyle: 'bold'
     });
-    this.add(keyboardLabel);
+    this.add(sectionLabel);
 
-    // Keyboard rows - QWERTY layout (compact)
+    // Keyboard rows - compact QWERTY layout
     const rows = [
       { keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], codes: ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0 },
-      { keys: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], codes: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.2 },
-      { keys: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], codes: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.4 },
-      { keys: ['Z', 'X', 'C', 'V', 'B', 'N', 'M'], codes: ['Z', 'X', 'C', 'V', 'B', 'N', 'M'], widths: [1, 1, 1, 1, 1, 1, 1], offset: 0.8 },
-      { keys: ['TAB', 'SPACE'], codes: ['TAB', 'SPACE'], widths: [1.2, 4], offset: 1.5 }
+      { keys: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], codes: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.25 },
+      { keys: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], codes: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.5 },
+      { keys: ['Z', 'X', 'C', 'V', 'B', 'N', 'M'], codes: ['Z', 'X', 'C', 'V', 'B', 'N', 'M'], widths: [1, 1, 1, 1, 1, 1, 1], offset: 0.9 },
+      { keys: ['Tab', 'Space'], codes: ['TAB', 'SPACE'], widths: [1.3, 3.5], offset: 1.5 }
     ];
 
     const keyboardWidth = 10 * (this.KEY_SIZE + this.KEY_SPACING);
     const startX = -keyboardWidth / 2;
-    const keyStartY = startY + 15;
+    const keyStartY = startY + 18;
 
     rows.forEach((row, rowIndex) => {
-      let x = startX + (row.offset || 0) * (this.KEY_SIZE + this.KEY_SPACING);
+      let x = startX + row.offset * (this.KEY_SIZE + this.KEY_SPACING);
       const y = keyStartY + rowIndex * (this.KEY_SIZE + this.KEY_SPACING);
 
       row.keys.forEach((keyDisplay, keyIndex) => {
         const keyWidth = this.KEY_SIZE * row.widths[keyIndex] + (row.widths[keyIndex] - 1) * this.KEY_SPACING;
         const keyCode = row.codes[keyIndex];
-
         this.createKeySlot(keyCode, keyDisplay, x, y, keyWidth);
         x += keyWidth + this.KEY_SPACING;
       });
     });
+
+    // Set content area Y for tabs (below keyboard)
+    this.contentAreaY = keyStartY + 5 * (this.KEY_SIZE + this.KEY_SPACING) + 15;
   }
 
   private createKeySlot(keyCode: string, display: string, x: number, y: number, width: number): void {
@@ -208,82 +174,54 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     this.drawKeyBackground(graphics, x, y, width, false, null);
     this.add(graphics);
 
-    // Key label at top of key
-    const keyLabel = this.scene.add.text(x + width / 2, y + 10, display, {
+    // Key label
+    const keyLabel = this.scene.add.text(x + width / 2, y + 9, display, {
       fontFamily: 'Arial',
-      fontSize: display.length > 3 ? '8px' : '10px',
-      color: '#666666',
+      fontSize: display.length > 2 ? '8px' : '9px',
+      color: '#aaaaaa',
       fontStyle: 'bold'
     });
     keyLabel.setOrigin(0.5);
     this.add(keyLabel);
 
-    // Binding label at bottom
-    const bindingLabel = this.scene.add.text(x + width / 2, y + 26, '', {
+    // Binding label
+    const bindingLabel = this.scene.add.text(x + width / 2, y + 24, '', {
       fontFamily: 'Arial',
-      fontSize: '8px',
-      color: '#ffcc00',
+      fontSize: '7px',
+      color: UI_COLORS.textYellow,
       fontStyle: 'bold',
       align: 'center'
     });
     bindingLabel.setOrigin(0.5);
     this.add(bindingLabel);
 
-    // Hit area for clicking
+    // Hit area
     const hitArea = this.scene.add.rectangle(x + width / 2, y + this.KEY_SIZE / 2, width, this.KEY_SIZE, 0x000000, 0);
     hitArea.setInteractive({ useHandCursor: true });
     this.add(hitArea);
 
-    const slot: KeySlot = {
-      key: keyCode,
-      display,
-      x,
-      y,
-      width,
-      binding: null,
-      graphics,
-      keyLabel,
-      bindingLabel,
-      hitArea
-    };
+    const slot: KeySlot = { key: keyCode, display, x, y, width, binding: null, graphics, keyLabel, bindingLabel, hitArea };
     this.keySlots.push(slot);
 
-    // Hover effect
     hitArea.on('pointerover', () => {
       if (this.selectedBinding) {
         this.drawKeyBackground(graphics, x, y, width, true, slot.binding);
-        const name = this.selectedBinding.name;
-        this.instructionText.setText(`Assign "${name}" to [${display}]`);
-        this.instructionText.setColor('#ffff00');
       }
     });
 
     hitArea.on('pointerout', () => {
       this.drawKeyBackground(graphics, x, y, width, false, slot.binding);
-      if (this.selectedBinding) {
-        const name = this.selectedBinding.name;
-        this.instructionText.setText(`Selected: ${name} - Click a key to assign`);
-      }
     });
 
-    // Click to assign or right-click to clear
     hitArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.rightButtonDown()) {
         if (slot.binding) {
           this.clearKeySlot(slot);
-          this.instructionText.setText(`Cleared [${display}]`);
-          this.instructionText.setColor('#ff8888');
+          this.updateInstruction(`Cleared [${display}]`, '#ff8888');
         }
-      } else {
-        if (this.selectedBinding) {
-          this.bindToKey(slot, this.selectedBinding);
-          const name = this.selectedBinding.name;
-          this.instructionText.setText(`Assigned "${name}" to [${display}]`);
-          this.instructionText.setColor('#88ff88');
-        } else {
-          this.instructionText.setText('Select an action or skill first');
-          this.instructionText.setColor('#ff8888');
-        }
+      } else if (this.selectedBinding) {
+        this.bindToKey(slot, this.selectedBinding);
+        this.updateInstruction(`Assigned "${this.selectedBinding.name}" to [${display}]`, '#88ff88');
       }
     });
   }
@@ -291,26 +229,31 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private drawKeyBackground(graphics: Phaser.GameObjects.Graphics, x: number, y: number, width: number, highlighted: boolean, binding: BindingType | null): void {
     graphics.clear();
 
+    // Background
     if (binding) {
       const color = isSkill(binding) ? this.getSkillColor(binding) : binding.color;
-      graphics.fillStyle(color, 1);
+      graphics.fillStyle(color, 0.8);
     } else {
-      graphics.fillStyle(0x3a3228, 1);
+      graphics.fillStyle(UI_COLORS.slotBg, 1);
     }
     graphics.fillRoundedRect(x, y, width, this.KEY_SIZE, 3);
 
-    const borderColor = highlighted ? 0xffff00 : (binding ? 0x88aacc : 0x5a4a38);
+    // Inner shadow
+    graphics.fillStyle(0x000000, 0.2);
+    graphics.fillRoundedRect(x + 1, y + 1, width - 2, 4, { tl: 2, tr: 2, bl: 0, br: 0 });
+
+    // Border
+    const borderColor = highlighted ? UI_COLORS.borderGold : (binding ? 0x88aacc : UI_COLORS.slotBorder);
     graphics.lineStyle(highlighted ? 2 : 1, borderColor, 1);
     graphics.strokeRoundedRect(x, y, width, this.KEY_SIZE, 3);
   }
 
   private createTabs(): void {
-    this.tabContentY = this.PANEL_HEIGHT / 2 - 185;
-    const tabY = this.tabContentY - 30;
-    const tabWidth = 100;
-    const tabHeight = 25;
-    const tabSpacing = 5;
-    const startX = -this.PANEL_WIDTH / 2 + 20;
+    const tabY = this.contentAreaY;
+    const tabWidth = 90;
+    const tabHeight = 24;
+    const tabSpacing = 4;
+    const startX = -this.PANEL_WIDTH / 2 + 25;
 
     const tabDefs: { type: TabType; label: string }[] = [
       { type: 'beginner', label: 'Beginner' },
@@ -327,8 +270,8 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
 
       const label = this.scene.add.text(0, 0, tabDef.label, {
         fontFamily: 'Arial',
-        fontSize: '11px',
-        color: '#ffffff',
+        fontSize: '10px',
+        color: UI_COLORS.textBrown,
         fontStyle: 'bold'
       });
       label.setOrigin(0.5);
@@ -357,33 +300,38 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     bg.clear();
 
     if (selected) {
-      bg.fillStyle(0x4a3728, 1);
+      // Selected tab - cream colored to match panel
+      bg.fillStyle(UI_COLORS.panelBg, 1);
       bg.fillRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
-      bg.lineStyle(2, 0xffd700, 1);
+      bg.lineStyle(2, UI_COLORS.borderOuter, 1);
       bg.strokeRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
     } else {
-      bg.fillStyle(0x2a2218, 1);
+      // Unselected tab - darker tan
+      bg.fillStyle(UI_COLORS.titleBarDark, 1);
       bg.fillRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
-      bg.lineStyle(1, 0x5a4a38, 1);
+      bg.lineStyle(1, UI_COLORS.borderOuter, 0.6);
       bg.strokeRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
     }
   }
 
   private getJobTabLabel(): string {
-    if (this.currentJob === JobId.BEGINNER) {
-      return '1st Job';
-    }
-    const jobDef = getJob(this.currentJob);
-    return jobDef.name;
+    if (this.currentJob === JobId.BEGINNER) return '1st Job';
+    return getJob(this.currentJob).name;
   }
 
   private createSkillsContainer(): void {
-    // Container panel for skills/actions
+    const contentY = this.contentAreaY + 18;
+    const contentHeight = this.PANEL_HEIGHT / 2 - contentY - 15;
+
+    // Content panel background - inset panel look
     const panelBg = this.scene.add.graphics();
-    panelBg.fillStyle(0x1a1810, 1);
-    panelBg.fillRect(-this.PANEL_WIDTH / 2 + 15, this.tabContentY - 5, this.PANEL_WIDTH - 30, 160);
-    panelBg.lineStyle(1, 0x4a3a28, 1);
-    panelBg.strokeRect(-this.PANEL_WIDTH / 2 + 15, this.tabContentY - 5, this.PANEL_WIDTH - 30, 160);
+    panelBg.fillStyle(UI_COLORS.panelInnerBg, 1);
+    panelBg.fillRoundedRect(-this.PANEL_WIDTH / 2 + 20, contentY, this.PANEL_WIDTH - 40, contentHeight, 4);
+    // Inner shadow for inset effect
+    panelBg.fillStyle(0x000000, 0.1);
+    panelBg.fillRect(-this.PANEL_WIDTH / 2 + 22, contentY + 2, this.PANEL_WIDTH - 44, 3);
+    panelBg.lineStyle(1, UI_COLORS.borderOuter, 0.5);
+    panelBg.strokeRoundedRect(-this.PANEL_WIDTH / 2 + 20, contentY, this.PANEL_WIDTH - 40, contentHeight, 4);
     this.add(panelBg);
 
     this.skillsContainer = this.scene.add.container(0, 0);
@@ -391,24 +339,20 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   }
 
   private refreshTabContent(): void {
-    // Clear existing buttons
     this.skillsContainer.removeAll(true);
-    this.bindingButtons = this.bindingButtons.filter(b => !this.skillsContainer.exists(b.container));
     this.bindingButtons = [];
 
     // Update tab appearances
-    const tabWidth = 100;
-    const tabHeight = 25;
+    const tabWidth = 90;
+    const tabHeight = 24;
     this.tabs.forEach(tab => {
       this.drawTab(tab, tabWidth, tabHeight, tab.type === this.currentTab);
-      // Update job tab label
       if (tab.type === 'job1') {
         const label = tab.button.list[1] as Phaser.GameObjects.Text;
         label.setText(this.getJobTabLabel());
       }
     });
 
-    // Populate based on current tab
     switch (this.currentTab) {
       case 'beginner':
         this.createBeginnerSkillButtons();
@@ -429,11 +373,10 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
 
   private createJobSkillButtons(): void {
     if (this.currentJob === JobId.BEGINNER) {
-      // Show a message that no job skills are available
-      const text = this.scene.add.text(0, this.tabContentY + 70, 'Advance to a job at level 10 to unlock job skills!', {
+      const text = this.scene.add.text(0, this.contentAreaY + 70, 'Advance to a job at level 10!', {
         fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#888888'
+        fontSize: '12px',
+        color: UI_COLORS.textGray
       });
       text.setOrigin(0.5);
       this.skillsContainer.add(text);
@@ -445,21 +388,20 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   }
 
   private createSkillGrid(skills: SkillDefinition[]): void {
-    const buttonWidth = 95;
-    const buttonHeight = 45;
-    const spacingX = 8;
-    const spacingY = 8;
-    const buttonsPerRow = 7;
-    const startX = -this.PANEL_WIDTH / 2 + 25 + buttonWidth / 2;
-    const startY = this.tabContentY + 10 + buttonHeight / 2;
+    const buttonWidth = 70;
+    const buttonHeight = 50;
+    const spacingX = 6;
+    const spacingY = 6;
+    const buttonsPerRow = 8;
+    const contentY = this.contentAreaY + 28;
+    const startX = -this.PANEL_WIDTH / 2 + 30 + buttonWidth / 2;
 
     skills.forEach((skill, index) => {
       const row = Math.floor(index / buttonsPerRow);
       const col = index % buttonsPerRow;
       const x = startX + col * (buttonWidth + spacingX);
-      const y = startY + row * (buttonHeight + spacingY);
+      const y = contentY + row * (buttonHeight + spacingY);
 
-      // Check if skill is available at current level
       const available = skill.requiredLevel <= this.currentLevel;
       this.createSkillButton(skill, x, y, buttonWidth, buttonHeight, available);
     });
@@ -467,19 +409,19 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
 
   private createActionButtons(): void {
     const actions = Object.values(ACTIONS);
-    const buttonWidth = 85;
+    const buttonWidth = 70;
     const buttonHeight = 40;
-    const spacingX = 8;
-    const spacingY = 8;
-    const buttonsPerRow = 5;
-    const startX = -this.PANEL_WIDTH / 2 + 25 + buttonWidth / 2;
-    const startY = this.tabContentY + 10 + buttonHeight / 2;
+    const spacingX = 6;
+    const spacingY = 6;
+    const buttonsPerRow = 8;
+    const contentY = this.contentAreaY + 28;
+    const startX = -this.PANEL_WIDTH / 2 + 30 + buttonWidth / 2;
 
     actions.forEach((action, index) => {
       const row = Math.floor(index / buttonsPerRow);
       const col = index % buttonsPerRow;
       const x = startX + col * (buttonWidth + spacingX);
-      const y = startY + row * (buttonHeight + spacingY);
+      const y = contentY + row * (buttonHeight + spacingY);
       this.createActionButton(action, x, y, buttonWidth, buttonHeight);
     });
   }
@@ -491,55 +433,43 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     this.drawSkillButton(bg, skill, width, height, false, false, available);
     container.add(bg);
 
-    // Skill icon placeholder (colored box based on type)
-    const iconSize = 24;
+    // Skill icon (colored circle with type letter)
+    const iconSize = 20;
     const iconBg = this.scene.add.graphics();
-    iconBg.fillStyle(this.getSkillColor(skill), 1);
-    iconBg.fillRoundedRect(-iconSize/2, -height/2 + 4, iconSize, iconSize, 3);
+    iconBg.fillStyle(this.getSkillColor(skill), available ? 1 : 0.4);
+    iconBg.fillCircle(0, -height / 2 + 14, iconSize / 2);
     iconBg.lineStyle(1, 0xffffff, 0.3);
-    iconBg.strokeRoundedRect(-iconSize/2, -height/2 + 4, iconSize, iconSize, 3);
+    iconBg.strokeCircle(0, -height / 2 + 14, iconSize / 2);
     container.add(iconBg);
 
-    // Skill type indicator
-    const typeIndicator = skill.type === 'buff' ? 'B' : skill.type === 'attack' ? 'A' : 'M';
-    const typeText = this.scene.add.text(0, -height/2 + 16, typeIndicator, {
+    const typeIndicator = skill.type === 'buff' ? 'B' : 'A';
+    const typeText = this.scene.add.text(0, -height / 2 + 14, typeIndicator, {
       fontFamily: 'Arial',
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#ffffff',
       fontStyle: 'bold'
     });
     typeText.setOrigin(0.5);
     container.add(typeText);
 
-    // Name
-    const nameText = this.scene.add.text(0, height/2 - 16, skill.name, {
+    // Name (truncated)
+    const displayName = skill.name.length > 8 ? skill.name.substring(0, 7) + '.' : skill.name;
+    const nameText = this.scene.add.text(0, height / 2 - 18, displayName, {
       fontFamily: 'Arial',
-      fontSize: '9px',
-      color: available ? '#ffffff' : '#666666',
-      fontStyle: 'bold'
+      fontSize: '8px',
+      color: available ? UI_COLORS.textWhite : UI_COLORS.textGray
     });
     nameText.setOrigin(0.5);
     container.add(nameText);
 
-    // Level requirement if not available
-    if (!available) {
-      const lvlText = this.scene.add.text(0, height/2 - 6, `Lv.${skill.requiredLevel}`, {
-        fontFamily: 'Arial',
-        fontSize: '8px',
-        color: '#ff6666'
-      });
-      lvlText.setOrigin(0.5);
-      container.add(lvlText);
-    } else {
-      // MP cost
-      const mpText = this.scene.add.text(0, height/2 - 6, `${skill.mpCost} MP`, {
-        fontFamily: 'Arial',
-        fontSize: '8px',
-        color: '#6699ff'
-      });
-      mpText.setOrigin(0.5);
-      container.add(mpText);
-    }
+    // Level or MP
+    const infoText = this.scene.add.text(0, height / 2 - 8, available ? `${skill.mpCost}MP` : `Lv${skill.requiredLevel}`, {
+      fontFamily: 'Arial',
+      fontSize: '7px',
+      color: available ? '#6699ff' : '#ff6666'
+    });
+    infoText.setOrigin(0.5);
+    container.add(infoText);
 
     // Hit area
     const hitArea = this.scene.add.rectangle(0, 0, width, height, 0x000000, 0);
@@ -555,13 +485,11 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
           this.drawSkillButton(bg, skill, width, height, false, true, true);
         }
       });
-
       hitArea.on('pointerout', () => {
         if (this.selectedBinding !== skill) {
           this.drawSkillButton(bg, skill, width, height, false, false, true);
         }
       });
-
       hitArea.on('pointerdown', () => {
         this.selectBinding(skill, container, bg, width, height);
       });
@@ -575,17 +503,16 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     this.drawActionButton(bg, action, width, height, false, false);
     container.add(bg);
 
-    // Name
-    const nameText = this.scene.add.text(0, 0, action.name, {
+    const displayName = action.name.length > 8 ? action.name.substring(0, 7) + '.' : action.name;
+    const nameText = this.scene.add.text(0, 0, displayName, {
       fontFamily: 'Arial',
-      fontSize: '11px',
-      color: '#ffffff',
+      fontSize: '9px',
+      color: UI_COLORS.textWhite,
       fontStyle: 'bold'
     });
     nameText.setOrigin(0.5);
     container.add(nameText);
 
-    // Hit area
     const hitArea = this.scene.add.rectangle(0, 0, width, height, 0x000000, 0);
     hitArea.setInteractive({ useHandCursor: true });
     container.add(hitArea);
@@ -598,13 +525,11 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
         this.drawActionButton(bg, action, width, height, false, true);
       }
     });
-
     hitArea.on('pointerout', () => {
       if (this.selectedBinding !== action) {
         this.drawActionButton(bg, action, width, height, false, false);
       }
     });
-
     hitArea.on('pointerdown', () => {
       this.selectBinding(action, container, bg, width, height);
     });
@@ -613,26 +538,48 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private drawSkillButton(bg: Phaser.GameObjects.Graphics, skill: SkillDefinition, width: number, height: number, selected: boolean, hovered: boolean, available: boolean): void {
     bg.clear();
 
-    const baseColor = available ? this.getSkillColor(skill) : 0x2a2a2a;
-    const alpha = available ? 1 : 0.5;
-    bg.fillStyle(selected ? 0x445566 : baseColor, alpha);
+    const baseColor = available ? this.getSkillColor(skill) : 0x888888;
+
+    if (selected) {
+      // Selected - gold highlight
+      bg.fillStyle(UI_COLORS.buttonHover, 1);
+    } else if (hovered) {
+      // Hovered - lighter
+      bg.fillStyle(baseColor, available ? 0.9 : 0.5);
+    } else {
+      bg.fillStyle(baseColor, available ? 0.75 : 0.4);
+    }
     bg.fillRoundedRect(-width / 2, -height / 2, width, height, 4);
 
-    const borderColor = selected ? 0xffd700 : (hovered ? 0xaaaaff : (available ? 0x666666 : 0x333333));
-    const borderWidth = selected ? 2 : 1;
-    bg.lineStyle(borderWidth, borderColor, 1);
+    // 3D effect - top highlight
+    if (available) {
+      bg.fillStyle(0xffffff, 0.2);
+      bg.fillRoundedRect(-width / 2 + 1, -height / 2 + 1, width - 2, height / 3, { tl: 3, tr: 3, bl: 0, br: 0 });
+    }
+
+    const borderColor = selected ? UI_COLORS.borderHighlight : (hovered ? UI_COLORS.borderGold : UI_COLORS.borderOuter);
+    bg.lineStyle(selected ? 2 : 1, borderColor, 1);
     bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 4);
   }
 
   private drawActionButton(bg: Phaser.GameObjects.Graphics, action: ActionDefinition, width: number, height: number, selected: boolean, hovered: boolean): void {
     bg.clear();
 
-    bg.fillStyle(selected ? 0x445566 : action.color, 1);
+    if (selected) {
+      bg.fillStyle(UI_COLORS.buttonHover, 1);
+    } else if (hovered) {
+      bg.fillStyle(action.color, 0.9);
+    } else {
+      bg.fillStyle(action.color, 0.75);
+    }
     bg.fillRoundedRect(-width / 2, -height / 2, width, height, 4);
 
-    const borderColor = selected ? 0xffd700 : (hovered ? 0xaaaaff : 0x666666);
-    const borderWidth = selected ? 2 : 1;
-    bg.lineStyle(borderWidth, borderColor, 1);
+    // 3D effect - top highlight
+    bg.fillStyle(0xffffff, 0.2);
+    bg.fillRoundedRect(-width / 2 + 1, -height / 2 + 1, width - 2, height / 3, { tl: 3, tr: 3, bl: 0, br: 0 });
+
+    const borderColor = selected ? UI_COLORS.borderHighlight : (hovered ? UI_COLORS.borderGold : UI_COLORS.borderOuter);
+    bg.lineStyle(selected ? 2 : 1, borderColor, 1);
     bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 4);
   }
 
@@ -659,23 +606,26 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
       this.drawActionButton(bg, binding as ActionDefinition, width, height, true, false);
     }
 
-    this.instructionText.setText(`Selected: ${binding.name} - Click a key to assign`);
-    this.instructionText.setColor('#ffff00');
+    this.updateInstruction(`Selected: ${binding.name}`, UI_COLORS.textYellow);
+  }
+
+  private updateInstruction(text: string, color: string): void {
+    this.instructionText.setText(text);
+    this.instructionText.setColor(color);
   }
 
   private getSkillColor(skill: SkillDefinition): number {
-    // Color based on job
     switch (skill.job) {
       case JobId.WARRIOR: return 0x8b4513;
       case JobId.MAGE: return 0x4169e1;
       case JobId.ARCHER: return 0x228b22;
       case JobId.THIEF: return 0x663399;
-      default: return 0x556b2f; // Beginner - olive
+      default: return 0x556b2f;
     }
   }
 
   private bindToKey(slot: KeySlot, binding: BindingType): void {
-    // Remove binding from previous key if bound elsewhere
+    // Remove from previous key
     this.keySlots.forEach(s => {
       if (s.binding && s !== slot) {
         const sameBinding = isSkill(binding) && isSkill(s.binding)
@@ -683,14 +633,13 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
           : isAction(binding) && isAction(s.binding)
             ? s.binding.id === binding.id
             : false;
-        if (sameBinding) {
-          this.clearKeySlot(s);
-        }
+        if (sameBinding) this.clearKeySlot(s);
       }
     });
 
     slot.binding = binding;
-    slot.bindingLabel.setText(binding.name.substring(0, 5));
+    const displayName = binding.name.length > 5 ? binding.name.substring(0, 4) + '.' : binding.name;
+    slot.bindingLabel.setText(displayName);
     this.drawKeyBackground(slot.graphics, slot.x, slot.y, slot.width, false, binding);
 
     if (isSkill(binding)) {
@@ -712,22 +661,17 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
         this.emitActionBindingsChanged();
       }
     }
-
     slot.binding = null;
     slot.bindingLabel.setText('');
     this.drawKeyBackground(slot.graphics, slot.x, slot.y, slot.width, false, null);
   }
 
   private emitSkillBindingsChanged(): void {
-    if (this.onSkillBindingsChanged) {
-      this.onSkillBindingsChanged(this.skillBindings);
-    }
+    if (this.onSkillBindingsChanged) this.onSkillBindingsChanged(this.skillBindings);
   }
 
   private emitActionBindingsChanged(): void {
-    if (this.onActionBindingsChanged) {
-      this.onActionBindingsChanged(this.actionBindings);
-    }
+    if (this.onActionBindingsChanged) this.onActionBindingsChanged(this.actionBindings);
   }
 
   setOnSkillBindingsChanged(callback: (bindings: Map<string, SkillDefinition>) => void): void {
@@ -752,20 +696,24 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     this.clearAllBindings();
 
     skillBindings.forEach((skill, keyCode) => {
+      if (!skill) return; // Safety check
       const slot = this.keySlots.find(s => s.key === keyCode);
       if (slot) {
         slot.binding = skill;
-        slot.bindingLabel.setText(skill.name.substring(0, 5));
+        const displayName = skill.name.length > 5 ? skill.name.substring(0, 4) + '.' : skill.name;
+        slot.bindingLabel.setText(displayName);
         this.drawKeyBackground(slot.graphics, slot.x, slot.y, slot.width, false, skill);
         this.skillBindings.set(keyCode, skill);
       }
     });
 
     actionBindings.forEach((action, keyCode) => {
+      if (!action) return; // Safety check
       const slot = this.keySlots.find(s => s.key === keyCode);
       if (slot) {
         slot.binding = action;
-        slot.bindingLabel.setText(action.name.substring(0, 5));
+        const displayName = action.name.length > 5 ? action.name.substring(0, 4) + '.' : action.name;
+        slot.bindingLabel.setText(displayName);
         this.drawKeyBackground(slot.graphics, slot.x, slot.y, slot.width, false, action);
         this.actionBindings.set(keyCode, action);
       }
@@ -786,8 +734,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     this.selectedBinding = null;
     this.selectedBindingButton = null;
     this.refreshTabContent();
-    this.instructionText.setText('Click a skill/action, then click a key to assign. Right-click key to clear.');
-    this.instructionText.setColor('#aaaaaa');
+    this.updateInstruction('Select skill/action, then click a key. Right-click to clear.', UI_COLORS.textGray);
   }
 
   close(): void {
@@ -798,26 +745,18 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   }
 
   updateJobAndLevel(job: JobId, level: number): void {
-    const jobChanged = this.currentJob !== job;
-    const levelChanged = this.currentLevel !== level;
-
-    if (!jobChanged && !levelChanged) return;
+    if (this.currentJob === job && this.currentLevel === level) return;
 
     this.currentJob = job;
     this.currentLevel = level;
 
-    // Refresh the current tab to update available skills
-    if (this.isOpen) {
-      this.refreshTabContent();
-    }
+    if (this.isOpen) this.refreshTabContent();
 
-    // Clear any skill bindings that are no longer available
-    const availableSkills = getSkillsForJobAndLevel(job, level);
-    const availableSkillIds = new Set(availableSkills.map(s => s.id));
-
+    // Clear unavailable skill bindings
     this.keySlots.forEach(slot => {
       if (slot.binding && isSkill(slot.binding)) {
-        if (!availableSkillIds.has(slot.binding.id)) {
+        const skill = slot.binding as SkillDefinition;
+        if (skill.job !== JobId.BEGINNER && skill.job !== job) {
           this.clearKeySlot(slot);
         }
       }
@@ -825,10 +764,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   }
 
   toggle(): void {
-    if (this.isOpen) {
-      this.close();
-    } else {
-      this.open();
-    }
+    if (this.isOpen) this.close();
+    else this.open();
   }
 }

@@ -1,7 +1,18 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 import { Equipment } from '../systems/Equipment';
-import { EquipSlot, ItemRarity, type EquipItem } from '../systems/ItemData';
+import { EquipSlot, type EquipItem } from '../systems/ItemData';
+import {
+  UI_COLORS,
+  drawPanel,
+  drawSlot,
+  drawTooltip,
+  drawDivider,
+  createCloseButton,
+  getTitleStyle,
+  getLabelStyle,
+  getRarityColor,
+} from './UITheme';
 
 interface EquipSlotUI {
   slot: EquipSlot;
@@ -14,7 +25,6 @@ interface EquipSlotUI {
 export class EquipmentUI extends Phaser.GameObjects.Container {
   private panel!: Phaser.GameObjects.Graphics;
   private titleText!: Phaser.GameObjects.Text;
-  private closeButton!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
 
   private equipSlots: EquipSlotUI[] = [];
@@ -30,7 +40,6 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
   public isOpen: boolean = false;
 
   constructor(scene: Phaser.Scene) {
-    // Position to the left of inventory
     super(scene, GAME_WIDTH / 2 - 250, GAME_HEIGHT / 2);
 
     this.createPanel();
@@ -45,105 +54,71 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
   private createPanel(): void {
     this.panel = this.scene.add.graphics();
-
-    // Main panel background
-    this.panel.fillStyle(0x1a1a2e, 0.95);
-    this.panel.fillRoundedRect(
-      -this.PANEL_WIDTH / 2,
-      -this.PANEL_HEIGHT / 2,
-      this.PANEL_WIDTH,
-      this.PANEL_HEIGHT,
-      8
-    );
-
-    // Border
-    this.panel.lineStyle(2, 0x4a4a6a, 1);
-    this.panel.strokeRoundedRect(
-      -this.PANEL_WIDTH / 2,
-      -this.PANEL_HEIGHT / 2,
-      this.PANEL_WIDTH,
-      this.PANEL_HEIGHT,
-      8
-    );
-
+    drawPanel(this.panel, -this.PANEL_WIDTH / 2, -this.PANEL_HEIGHT / 2, this.PANEL_WIDTH, this.PANEL_HEIGHT);
     this.add(this.panel);
-
-    // Title bar
-    const titleBar = this.scene.add.graphics();
-    titleBar.fillStyle(0x2a2a4a, 1);
-    titleBar.fillRoundedRect(
-      -this.PANEL_WIDTH / 2 + 4,
-      -this.PANEL_HEIGHT / 2 + 4,
-      this.PANEL_WIDTH - 8,
-      28,
-      { tl: 6, tr: 6, bl: 0, br: 0 }
-    );
-    this.add(titleBar);
 
     // Title text
     this.titleText = this.scene.add.text(
       -this.PANEL_WIDTH / 2 + 15,
-      -this.PANEL_HEIGHT / 2 + 10,
+      -this.PANEL_HEIGHT / 2 + 9,
       'Equipment',
-      {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }
+      getTitleStyle()
     );
     this.add(this.titleText);
 
     // Close button
-    this.closeButton = this.scene.add.text(
-      this.PANEL_WIDTH / 2 - 20,
-      -this.PANEL_HEIGHT / 2 + 8,
-      '✕',
-      {
-        fontFamily: 'Arial',
-        fontSize: '16px',
-        color: '#888888'
-      }
+    const closeBtn = createCloseButton(
+      this.scene,
+      this.PANEL_WIDTH / 2 - 15,
+      -this.PANEL_HEIGHT / 2 + 16,
+      () => this.close()
     );
-    this.closeButton.setInteractive({ useHandCursor: true });
-    this.closeButton.on('pointerover', () => this.closeButton.setColor('#ff6666'));
-    this.closeButton.on('pointerout', () => this.closeButton.setColor('#888888'));
-    this.closeButton.on('pointerdown', () => this.close());
-    this.add(this.closeButton);
+    this.add(closeBtn);
   }
 
   private createEquipSlots(): void {
-    // Character silhouette area
-    const silhouette = this.scene.add.graphics();
-    silhouette.fillStyle(0x0a0a1a, 0.5);
-    silhouette.fillRoundedRect(-70, -this.PANEL_HEIGHT / 2 + 45, 140, 160, 6);
-    this.add(silhouette);
+    // Character silhouette area with better styling
+    const silhouetteArea = this.scene.add.graphics();
+    silhouetteArea.fillStyle(UI_COLORS.slotBg, 0.6);
+    silhouetteArea.fillRoundedRect(-70, -this.PANEL_HEIGHT / 2 + 40, 140, 165, 6);
+    silhouetteArea.lineStyle(1, UI_COLORS.slotBorder, 0.5);
+    silhouetteArea.strokeRoundedRect(-70, -this.PANEL_HEIGHT / 2 + 40, 140, 165, 6);
+    this.add(silhouetteArea);
 
-    // Draw simple character outline
+    // Draw improved character outline
     const charOutline = this.scene.add.graphics();
-    charOutline.lineStyle(1, 0x3a3a5a, 0.5);
-    // Head
-    charOutline.strokeCircle(0, -this.PANEL_HEIGHT / 2 + 80, 20);
-    // Body
-    charOutline.strokeRect(-15, -this.PANEL_HEIGHT / 2 + 100, 30, 50);
+    charOutline.lineStyle(2, UI_COLORS.borderHighlight, 0.4);
+
+    // Head (circle)
+    charOutline.strokeCircle(0, -this.PANEL_HEIGHT / 2 + 80, 18);
+    // Neck
+    charOutline.strokeRect(-5, -this.PANEL_HEIGHT / 2 + 98, 10, 8);
+    // Body (torso)
+    charOutline.beginPath();
+    charOutline.moveTo(-18, -this.PANEL_HEIGHT / 2 + 106);
+    charOutline.lineTo(-22, -this.PANEL_HEIGHT / 2 + 150);
+    charOutline.lineTo(22, -this.PANEL_HEIGHT / 2 + 150);
+    charOutline.lineTo(18, -this.PANEL_HEIGHT / 2 + 106);
+    charOutline.closePath();
+    charOutline.strokePath();
     // Arms
-    charOutline.strokeRect(-35, -this.PANEL_HEIGHT / 2 + 105, 18, 35);
-    charOutline.strokeRect(17, -this.PANEL_HEIGHT / 2 + 105, 18, 35);
+    charOutline.strokeRect(-38, -this.PANEL_HEIGHT / 2 + 108, 14, 35);
+    charOutline.strokeRect(24, -this.PANEL_HEIGHT / 2 + 108, 14, 35);
     // Legs
-    charOutline.strokeRect(-12, -this.PANEL_HEIGHT / 2 + 150, 10, 40);
-    charOutline.strokeRect(2, -this.PANEL_HEIGHT / 2 + 150, 10, 40);
+    charOutline.strokeRect(-16, -this.PANEL_HEIGHT / 2 + 150, 12, 42);
+    charOutline.strokeRect(4, -this.PANEL_HEIGHT / 2 + 150, 12, 42);
     this.add(charOutline);
 
-    // Equipment slot positions (around the character)
+    // Equipment slot positions
     const slotDefs: { slot: EquipSlot; label: string; x: number; y: number }[] = [
-      { slot: EquipSlot.HAT, label: 'Hat', x: 0, y: -this.PANEL_HEIGHT / 2 + 50 },
-      { slot: EquipSlot.WEAPON, label: 'Weapon', x: -55, y: -this.PANEL_HEIGHT / 2 + 120 },
-      { slot: EquipSlot.TOP, label: 'Top', x: 55, y: -this.PANEL_HEIGHT / 2 + 90 },
-      { slot: EquipSlot.BOTTOM, label: 'Bottom', x: 55, y: -this.PANEL_HEIGHT / 2 + 140 },
-      { slot: EquipSlot.GLOVES, label: 'Gloves', x: -55, y: -this.PANEL_HEIGHT / 2 + 170 },
-      { slot: EquipSlot.SHOES, label: 'Shoes', x: 0, y: -this.PANEL_HEIGHT / 2 + 195 },
-      { slot: EquipSlot.CAPE, label: 'Cape', x: 55, y: -this.PANEL_HEIGHT / 2 + 190 },
-      { slot: EquipSlot.ACCESSORY, label: 'Acc', x: -55, y: -this.PANEL_HEIGHT / 2 + 70 },
+      { slot: EquipSlot.HAT, label: 'Hat', x: 0, y: -this.PANEL_HEIGHT / 2 + 48 },
+      { slot: EquipSlot.WEAPON, label: 'Weapon', x: -58, y: -this.PANEL_HEIGHT / 2 + 120 },
+      { slot: EquipSlot.TOP, label: 'Top', x: 58, y: -this.PANEL_HEIGHT / 2 + 90 },
+      { slot: EquipSlot.BOTTOM, label: 'Bottom', x: 58, y: -this.PANEL_HEIGHT / 2 + 140 },
+      { slot: EquipSlot.GLOVES, label: 'Gloves', x: -58, y: -this.PANEL_HEIGHT / 2 + 168 },
+      { slot: EquipSlot.SHOES, label: 'Shoes', x: 0, y: -this.PANEL_HEIGHT / 2 + 198 },
+      { slot: EquipSlot.CAPE, label: 'Cape', x: 58, y: -this.PANEL_HEIGHT / 2 + 190 },
+      { slot: EquipSlot.ACCESSORY, label: 'Acc', x: -58, y: -this.PANEL_HEIGHT / 2 + 72 },
     ];
 
     slotDefs.forEach(def => {
@@ -157,18 +132,11 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
     // Slot background
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x0a0a1a, 1);
-    bg.fillRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-    bg.lineStyle(1, 0x3a3a5a, 1);
-    bg.strokeRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
+    drawSlot(bg, 0, 0, this.SLOT_SIZE, false, true);
     container.add(bg);
 
     // Slot label
-    const labelText = this.scene.add.text(0, this.SLOT_SIZE / 2 + 2, label, {
-      fontFamily: 'Arial',
-      fontSize: '8px',
-      color: '#666666'
-    });
+    const labelText = this.scene.add.text(0, this.SLOT_SIZE / 2 + 2, label, getLabelStyle());
     labelText.setOrigin(0.5, 0);
     container.add(labelText);
 
@@ -184,27 +152,18 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
     hitArea.on('pointerover', () => {
       bg.clear();
-      bg.fillStyle(0x1a1a3a, 1);
-      bg.fillRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-      bg.lineStyle(2, 0x6a6aaa, 1);
-      bg.strokeRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-
+      drawSlot(bg, 0, 0, this.SLOT_SIZE, true, !this.equipment?.getSlot(slot));
       this.showTooltip(slot, x, y);
     });
 
     hitArea.on('pointerout', () => {
       bg.clear();
-      bg.fillStyle(0x0a0a1a, 1);
-      bg.fillRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-      bg.lineStyle(1, 0x3a3a5a, 1);
-      bg.strokeRoundedRect(-this.SLOT_SIZE / 2, -this.SLOT_SIZE / 2, this.SLOT_SIZE, this.SLOT_SIZE, 4);
-
+      drawSlot(bg, 0, 0, this.SLOT_SIZE, false, !this.equipment?.getSlot(slot));
       this.hideTooltip();
     });
 
     hitArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.rightButtonDown()) {
-        // Right-click to unequip
         if (this.onUnequip) {
           this.onUnequip(slot);
         }
@@ -220,21 +179,25 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
   }
 
   private createStatsDisplay(): void {
-    // Stats section
     const statsY = this.PANEL_HEIGHT / 2 - 100;
 
-    const statsLabel = this.scene.add.text(-this.PANEL_WIDTH / 2 + 15, statsY - 20, 'Bonus Stats', {
+    // Divider
+    const dividerGraphics = this.scene.add.graphics();
+    drawDivider(dividerGraphics, -this.PANEL_WIDTH / 2 + 10, statsY - 25, this.PANEL_WIDTH - 20);
+    this.add(dividerGraphics);
+
+    const statsLabel = this.scene.add.text(-this.PANEL_WIDTH / 2 + 15, statsY - 18, 'Bonus Stats', {
       fontFamily: 'Arial',
       fontSize: '11px',
-      color: '#888888',
+      color: UI_COLORS.textGold,
       fontStyle: 'bold'
     });
     this.add(statsLabel);
 
-    this.statsText = this.scene.add.text(-this.PANEL_WIDTH / 2 + 15, statsY, '', {
+    this.statsText = this.scene.add.text(-this.PANEL_WIDTH / 2 + 15, statsY + 2, '', {
       fontFamily: 'Arial',
       fontSize: '10px',
-      color: '#aaaaaa',
+      color: UI_COLORS.textWhite,
       lineSpacing: 4
     });
     this.add(this.statsText);
@@ -258,32 +221,24 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
     this.tooltip.removeAll(true);
 
-    const rarityColors: Record<string, string> = {
-      [ItemRarity.COMMON]: '#ffffff',
-      [ItemRarity.UNCOMMON]: '#00ff00',
-      [ItemRarity.RARE]: '#00bfff',
-      [ItemRarity.EPIC]: '#9932cc',
-      [ItemRarity.LEGENDARY]: '#ffa500'
-    };
-
     const lines: { text: string; color: string; size: number; bold?: boolean }[] = [
-      { text: item.name, color: rarityColors[item.rarity] || '#ffffff', size: 13, bold: true },
+      { text: item.name, color: getRarityColor(item.rarity), size: 13, bold: true },
       { text: 'Equipped', color: '#88ff88', size: 10 },
-      { text: item.description, color: '#cccccc', size: 11 },
+      { text: item.description, color: UI_COLORS.textWhite, size: 11 },
       { text: '', color: '#ffffff', size: 4 },
     ];
 
-    if (item.stats.ATK) lines.push({ text: `ATK: +${item.stats.ATK}`, color: '#ff6666', size: 11 });
-    if (item.stats.DEF) lines.push({ text: `DEF: +${item.stats.DEF}`, color: '#6666ff', size: 11 });
+    if (item.stats.ATK) lines.push({ text: `ATK: +${item.stats.ATK}`, color: '#ff6b6b', size: 11 });
+    if (item.stats.DEF) lines.push({ text: `DEF: +${item.stats.DEF}`, color: '#6bb5ff', size: 11 });
     if (item.stats.STR) lines.push({ text: `STR: +${item.stats.STR}`, color: '#ffcc66', size: 11 });
-    if (item.stats.DEX) lines.push({ text: `DEX: +${item.stats.DEX}`, color: '#66ff66', size: 11 });
+    if (item.stats.DEX) lines.push({ text: `DEX: +${item.stats.DEX}`, color: '#66ff99', size: 11 });
     if (item.stats.INT) lines.push({ text: `INT: +${item.stats.INT}`, color: '#66ccff', size: 11 });
-    if (item.stats.LUK) lines.push({ text: `LUK: +${item.stats.LUK}`, color: '#ff66ff', size: 11 });
+    if (item.stats.LUK) lines.push({ text: `LUK: +${item.stats.LUK}`, color: '#ff99ff', size: 11 });
     if (item.stats.HP) lines.push({ text: `HP: +${item.stats.HP}`, color: '#ff8888', size: 11 });
     if (item.stats.MP) lines.push({ text: `MP: +${item.stats.MP}`, color: '#88ccff', size: 11 });
 
     lines.push({ text: '', color: '#ffffff', size: 4 });
-    lines.push({ text: 'Right-click to unequip', color: '#ffff66', size: 10 });
+    lines.push({ text: 'Right-click to unequip', color: UI_COLORS.textYellow, size: 10 });
 
     // Calculate dimensions
     let maxWidth = 0;
@@ -301,10 +256,7 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
     // Background
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x1a1a2e, 0.95);
-    bg.fillRoundedRect(0, 0, tooltipWidth, tooltipHeight, 6);
-    bg.lineStyle(1, 0x4a4a6a, 1);
-    bg.strokeRoundedRect(0, 0, tooltipWidth, tooltipHeight, 6);
+    drawTooltip(bg, 0, 0, tooltipWidth, tooltipHeight);
     this.tooltip.add(bg);
 
     // Text
@@ -378,7 +330,6 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
     switch (slot) {
       case EquipSlot.WEAPON:
-        // Sword
         graphics.fillStyle(0xcccccc, 1);
         graphics.fillRect(-3, -halfSize * 0.8, 6, halfSize * 1.4);
         graphics.fillStyle(0x8b4513, 1);
