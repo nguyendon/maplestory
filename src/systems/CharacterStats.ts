@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { JobId, getJob } from './JobData';
 
 /**
  * Base character statistics
@@ -20,6 +21,7 @@ export interface CharacterStatsData {
   unassignedAP: number;
   currentHP?: number;
   currentMP?: number;
+  job?: JobId;
 }
 
 /**
@@ -29,6 +31,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   private _level: number = 1;
   private _exp: number = 0;
   private _unassignedAP: number = 0;
+  private _job: JobId = JobId.BEGINNER;
 
   private _baseStats: BaseStats = {
     STR: 4,
@@ -72,22 +75,35 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   get DEX(): number { return this._baseStats.DEX; }
   get INT(): number { return this._baseStats.INT; }
   get LUK(): number { return this._baseStats.LUK; }
+  get job(): JobId { return this._job; }
 
-  // Derived Stats
+  getJobDefinition() {
+    return getJob(this._job);
+  }
+
+  // Derived Stats (modified by job)
   getMaxHP(): number {
-    return 50 + (this._level * 20) + (this._baseStats.STR * 10);
+    const jobDef = this.getJobDefinition();
+    const hpPerLevel = jobDef.hpPerLevel;
+    return 50 + (this._level * hpPerLevel) + (this._baseStats.STR * 10);
   }
 
   getMaxMP(): number {
-    return 30 + (this._level * 14) + (this._baseStats.INT * 10);
+    const jobDef = this.getJobDefinition();
+    const mpPerLevel = jobDef.mpPerLevel;
+    return 30 + (this._level * mpPerLevel) + (this._baseStats.INT * 10);
   }
 
   getATK(): number {
-    return Math.floor(this._baseStats.STR * 1.2 + this._baseStats.DEX * 0.4);
+    const jobDef = this.getJobDefinition();
+    const baseATK = this._baseStats.STR * 1.2 + this._baseStats.DEX * 0.4;
+    return Math.floor(baseATK * jobDef.baseATKMultiplier);
   }
 
   getMATK(): number {
-    return Math.floor(this._baseStats.INT * 1.2 + this._baseStats.LUK * 0.4);
+    const jobDef = this.getJobDefinition();
+    const baseMATK = this._baseStats.INT * 1.2 + this._baseStats.LUK * 0.4;
+    return Math.floor(baseMATK * jobDef.baseMATKMultiplier);
   }
 
   getDEF(): number {
@@ -95,7 +111,36 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   }
 
   getCriticalRate(): number {
-    return Math.min(this._baseStats.LUK * 0.05, PlayerStats.MAX_CRIT_RATE);
+    return Math.min(this._baseStats.LUK * 0.5, PlayerStats.MAX_CRIT_RATE);
+  }
+
+  // Job System
+  setJob(jobId: JobId): boolean {
+    if (this._job === jobId) return false;
+
+    const oldJob = this._job;
+    this._job = jobId;
+
+    // Recalculate HP/MP caps (don't reduce current values below new max)
+    this._currentHP = Math.min(this._currentHP, this.getMaxHP());
+    this._currentMP = Math.min(this._currentMP, this.getMaxMP());
+
+    this.emit('jobChanged', { oldJob, newJob: jobId });
+    this.emit('hpChanged', this._currentHP, this.getMaxHP());
+    this.emit('mpChanged', this._currentMP, this.getMaxMP());
+    this.emit('statsChanged');
+
+    return true;
+  }
+
+  canAdvanceToJob(targetJob: JobId): boolean {
+    // Can only advance from Beginner
+    if (this._job !== JobId.BEGINNER) return false;
+    // Can't become a beginner again
+    if (targetJob === JobId.BEGINNER) return false;
+    // Must meet level requirement
+    const jobDef = getJob(targetJob);
+    return this._level >= jobDef.requiredLevel;
   }
 
   // Experience System
@@ -241,7 +286,8 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
       baseStats: { ...this._baseStats },
       unassignedAP: this._unassignedAP,
       currentHP: this._currentHP,
-      currentMP: this._currentMP
+      currentMP: this._currentMP,
+      job: this._job
     };
   }
 
@@ -250,6 +296,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
     this._exp = data.exp;
     this._baseStats = { ...data.baseStats };
     this._unassignedAP = data.unassignedAP;
+    this._job = data.job ?? JobId.BEGINNER;
     this._currentHP = data.currentHP ?? this.getMaxHP();
     this._currentMP = data.currentMP ?? this.getMaxMP();
     this.emit('statsChanged');
