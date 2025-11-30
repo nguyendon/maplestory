@@ -59,14 +59,12 @@ export class DialogueBox extends Phaser.GameObjects.Container {
     this.speakerText = scene.add.text(this.BOX_X + this.PADDING + 5, this.BOX_Y - 8, '', {
       fontFamily: 'Arial',
       fontSize: '13px',
-      color: UI_COLORS.textBrown,
-      fontStyle: 'bold',
-      stroke: '#f5e6c8',
-      strokeThickness: 2
+      color: UI_COLORS.textWhite,
+      fontStyle: 'bold'
     });
     this.add(this.speakerText);
 
-    // Dialogue text (dark text on light background)
+    // Dialogue text
     this.dialogueText = scene.add.text(
       this.BOX_X + this.PADDING,
       this.BOX_Y + 25,
@@ -74,7 +72,7 @@ export class DialogueBox extends Phaser.GameObjects.Container {
       {
         fontFamily: 'Arial',
         fontSize: '13px',
-        color: UI_COLORS.textDark,
+        color: UI_COLORS.textLight,
         wordWrap: { width: this.BOX_WIDTH - this.PADDING * 2 },
         lineSpacing: 4
       }
@@ -149,17 +147,17 @@ export class DialogueBox extends Phaser.GameObjects.Container {
     const boxX = this.BOX_X + this.PADDING;
     const boxY = this.BOX_Y - boxHeight / 2 - 4;
 
-    // Speaker name background - tan/gold tab
+    // Speaker name background - sleek tab
     this.speakerBox.fillStyle(UI_COLORS.titleBarBg, 1);
     this.speakerBox.fillRoundedRect(boxX, boxY, textWidth, boxHeight, 4);
 
-    // Border
-    this.speakerBox.lineStyle(1, UI_COLORS.borderOuter, 1);
+    // Border with accent
+    this.speakerBox.lineStyle(1, UI_COLORS.accentBlue, 0.6);
     this.speakerBox.strokeRoundedRect(boxX, boxY, textWidth, boxHeight, 4);
 
-    // Highlight on top
-    this.speakerBox.fillStyle(0xffffff, 0.3);
-    this.speakerBox.fillRect(boxX + 4, boxY + 2, textWidth - 8, 2);
+    // Top highlight
+    this.speakerBox.fillStyle(0xffffff, 0.1);
+    this.speakerBox.fillRoundedRect(boxX + 1, boxY + 1, textWidth - 2, boxHeight / 2, { tl: 3, tr: 3, bl: 0, br: 0 });
   }
 
   public openDialogue(dialogue: DialogueData): void {
@@ -239,7 +237,7 @@ export class DialogueBox extends Phaser.GameObjects.Container {
         {
           fontFamily: 'Arial',
           fontSize: '12px',
-          color: isSelected ? UI_COLORS.textGold : UI_COLORS.textDark,
+          color: isSelected ? UI_COLORS.textCyan : UI_COLORS.textLight,
           fontStyle: isSelected ? 'bold' : 'normal'
         }
       );
@@ -262,7 +260,7 @@ export class DialogueBox extends Phaser.GameObjects.Container {
       const choice = line.choices![index];
       const isSelected = index === this.selectedChoice;
       text.setText(`${isSelected ? '>' : '  '} ${choice.text}`);
-      text.setColor(isSelected ? UI_COLORS.textGold : UI_COLORS.textDark);
+      text.setColor(isSelected ? UI_COLORS.textCyan : UI_COLORS.textLight);
       text.setFontStyle(isSelected ? 'bold' : 'normal');
     });
   }

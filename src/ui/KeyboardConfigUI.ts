@@ -3,7 +3,7 @@ import type { SkillDefinition } from '../skills/SkillData';
 import { SKILLS } from '../skills/SkillData';
 import { JobId, getJob } from '../systems/JobData';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
-import { UI_COLORS, drawPanel, createCloseButton, getTitleStyle } from './UITheme';
+import { UI_COLORS, drawPanel, drawTab, drawContentPanel, createCloseButton, getTitleStyle } from './UITheme';
 
 export interface ActionDefinition {
   id: string;
@@ -118,7 +118,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     this.add(closeBtn);
 
     // Instructions
-    this.instructionText = this.scene.add.text(0, -this.PANEL_HEIGHT / 2 + 42,
+    this.instructionText = this.scene.add.text(0, -this.PANEL_HEIGHT / 2 + 44,
       'Select skill/action, then click a key. Right-click to clear.', {
         fontFamily: 'Arial',
         fontSize: '10px',
@@ -135,7 +135,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     const sectionLabel = this.scene.add.text(-this.PANEL_WIDTH / 2 + 20, startY, 'Keyboard', {
       fontFamily: 'Arial',
       fontSize: '10px',
-      color: UI_COLORS.textBrown,
+      color: UI_COLORS.textGray,
       fontStyle: 'bold'
     });
     this.add(sectionLabel);
@@ -178,7 +178,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     const keyLabel = this.scene.add.text(x + width / 2, y + 9, display, {
       fontFamily: 'Arial',
       fontSize: display.length > 2 ? '8px' : '9px',
-      color: '#aaaaaa',
+      color: UI_COLORS.textGray,
       fontStyle: 'bold'
     });
     keyLabel.setOrigin(0.5);
@@ -271,7 +271,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
       const label = this.scene.add.text(0, 0, tabDef.label, {
         fontFamily: 'Arial',
         fontSize: '10px',
-        color: UI_COLORS.textBrown,
+        color: UI_COLORS.textLight,
         fontStyle: 'bold'
       });
       label.setOrigin(0.5);
@@ -291,27 +291,14 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
         this.refreshTabContent();
       });
 
-      this.drawTab(tab, tabWidth, tabHeight, tabDef.type === this.currentTab);
+      this.drawTabButton(tab, tabWidth, tabHeight, tabDef.type === this.currentTab);
     });
   }
 
-  private drawTab(tab: { type: TabType; label: string; bg: Phaser.GameObjects.Graphics }, width: number, height: number, selected: boolean): void {
+  private drawTabButton(tab: { type: TabType; label: string; bg: Phaser.GameObjects.Graphics }, width: number, height: number, selected: boolean): void {
     const bg = tab.bg;
     bg.clear();
-
-    if (selected) {
-      // Selected tab - cream colored to match panel
-      bg.fillStyle(UI_COLORS.panelBg, 1);
-      bg.fillRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
-      bg.lineStyle(2, UI_COLORS.borderOuter, 1);
-      bg.strokeRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
-    } else {
-      // Unselected tab - darker tan
-      bg.fillStyle(UI_COLORS.titleBarDark, 1);
-      bg.fillRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
-      bg.lineStyle(1, UI_COLORS.borderOuter, 0.6);
-      bg.strokeRoundedRect(-width / 2, -height / 2, width, height, { tl: 4, tr: 4, bl: 0, br: 0 });
-    }
+    drawTab(bg, -width / 2, -height / 2, width, height, selected);
   }
 
   private getJobTabLabel(): string {
@@ -323,15 +310,9 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     const contentY = this.contentAreaY + 18;
     const contentHeight = this.PANEL_HEIGHT / 2 - contentY - 15;
 
-    // Content panel background - inset panel look
+    // Content panel background - modern inset look
     const panelBg = this.scene.add.graphics();
-    panelBg.fillStyle(UI_COLORS.panelInnerBg, 1);
-    panelBg.fillRoundedRect(-this.PANEL_WIDTH / 2 + 20, contentY, this.PANEL_WIDTH - 40, contentHeight, 4);
-    // Inner shadow for inset effect
-    panelBg.fillStyle(0x000000, 0.1);
-    panelBg.fillRect(-this.PANEL_WIDTH / 2 + 22, contentY + 2, this.PANEL_WIDTH - 44, 3);
-    panelBg.lineStyle(1, UI_COLORS.borderOuter, 0.5);
-    panelBg.strokeRoundedRect(-this.PANEL_WIDTH / 2 + 20, contentY, this.PANEL_WIDTH - 40, contentHeight, 4);
+    drawContentPanel(panelBg, -this.PANEL_WIDTH / 2 + 20, contentY, this.PANEL_WIDTH - 40, contentHeight);
     this.add(panelBg);
 
     this.skillsContainer = this.scene.add.container(0, 0);
@@ -346,7 +327,7 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     const tabWidth = 90;
     const tabHeight = 24;
     this.tabs.forEach(tab => {
-      this.drawTab(tab, tabWidth, tabHeight, tab.type === this.currentTab);
+      this.drawTabButton(tab, tabWidth, tabHeight, tab.type === this.currentTab);
       if (tab.type === 'job1') {
         const label = tab.button.list[1] as Phaser.GameObjects.Text;
         label.setText(this.getJobTabLabel());
@@ -538,48 +519,56 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private drawSkillButton(bg: Phaser.GameObjects.Graphics, skill: SkillDefinition, width: number, height: number, selected: boolean, hovered: boolean, available: boolean): void {
     bg.clear();
 
-    const baseColor = available ? this.getSkillColor(skill) : 0x888888;
+    const baseColor = available ? this.getSkillColor(skill) : 0x333344;
 
+    // Glow effect when selected or hovered
     if (selected) {
-      // Selected - gold highlight
-      bg.fillStyle(UI_COLORS.buttonHover, 1);
-    } else if (hovered) {
-      // Hovered - lighter
-      bg.fillStyle(baseColor, available ? 0.9 : 0.5);
-    } else {
-      bg.fillStyle(baseColor, available ? 0.75 : 0.4);
+      bg.lineStyle(2, UI_COLORS.accentCyan, 0.5);
+      bg.strokeRoundedRect(-width / 2 - 1, -height / 2 - 1, width + 2, height + 2, 5);
+    } else if (hovered && available) {
+      bg.lineStyle(2, UI_COLORS.accentBlue, 0.4);
+      bg.strokeRoundedRect(-width / 2 - 1, -height / 2 - 1, width + 2, height + 2, 5);
     }
+
+    // Background
+    bg.fillStyle(baseColor, available ? 0.9 : 0.5);
     bg.fillRoundedRect(-width / 2, -height / 2, width, height, 4);
 
-    // 3D effect - top highlight
+    // Top highlight for depth
     if (available) {
-      bg.fillStyle(0xffffff, 0.2);
+      bg.fillStyle(0xffffff, 0.1);
       bg.fillRoundedRect(-width / 2 + 1, -height / 2 + 1, width - 2, height / 3, { tl: 3, tr: 3, bl: 0, br: 0 });
     }
 
-    const borderColor = selected ? UI_COLORS.borderHighlight : (hovered ? UI_COLORS.borderGold : UI_COLORS.borderOuter);
-    bg.lineStyle(selected ? 2 : 1, borderColor, 1);
+    // Border
+    const borderColor = selected ? UI_COLORS.accentCyan : (hovered ? UI_COLORS.accentBlue : UI_COLORS.borderOuter);
+    bg.lineStyle(1, borderColor, selected || hovered ? 0.8 : 0.5);
     bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 4);
   }
 
   private drawActionButton(bg: Phaser.GameObjects.Graphics, action: ActionDefinition, width: number, height: number, selected: boolean, hovered: boolean): void {
     bg.clear();
 
+    // Glow effect when selected or hovered
     if (selected) {
-      bg.fillStyle(UI_COLORS.buttonHover, 1);
+      bg.lineStyle(2, UI_COLORS.accentCyan, 0.5);
+      bg.strokeRoundedRect(-width / 2 - 1, -height / 2 - 1, width + 2, height + 2, 5);
     } else if (hovered) {
-      bg.fillStyle(action.color, 0.9);
-    } else {
-      bg.fillStyle(action.color, 0.75);
+      bg.lineStyle(2, UI_COLORS.accentBlue, 0.4);
+      bg.strokeRoundedRect(-width / 2 - 1, -height / 2 - 1, width + 2, height + 2, 5);
     }
+
+    // Background
+    bg.fillStyle(action.color, 0.85);
     bg.fillRoundedRect(-width / 2, -height / 2, width, height, 4);
 
-    // 3D effect - top highlight
-    bg.fillStyle(0xffffff, 0.2);
+    // Top highlight
+    bg.fillStyle(0xffffff, 0.12);
     bg.fillRoundedRect(-width / 2 + 1, -height / 2 + 1, width - 2, height / 3, { tl: 3, tr: 3, bl: 0, br: 0 });
 
-    const borderColor = selected ? UI_COLORS.borderHighlight : (hovered ? UI_COLORS.borderGold : UI_COLORS.borderOuter);
-    bg.lineStyle(selected ? 2 : 1, borderColor, 1);
+    // Border
+    const borderColor = selected ? UI_COLORS.accentCyan : (hovered ? UI_COLORS.accentBlue : UI_COLORS.borderOuter);
+    bg.lineStyle(1, borderColor, selected || hovered ? 0.8 : 0.5);
     bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 4);
   }
 

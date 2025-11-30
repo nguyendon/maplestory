@@ -41,28 +41,27 @@ export class SkillBar extends Phaser.GameObjects.Container {
     this.backgroundPanel = this.scene.add.graphics();
 
     // Outer shadow
-    this.backgroundPanel.fillStyle(0x000000, 0.3);
-    this.backgroundPanel.fillRoundedRect(startX + 3, 3, totalWidth, totalHeight, 6);
+    this.backgroundPanel.fillStyle(0x000000, 0.4);
+    this.backgroundPanel.fillRoundedRect(startX + 2, 2, totalWidth, totalHeight, 8);
 
-    // Outer dark border frame
-    this.backgroundPanel.fillStyle(UI_COLORS.borderShadow, 1);
-    this.backgroundPanel.fillRoundedRect(startX, 0, totalWidth, totalHeight, 6);
+    // Main panel background
+    this.backgroundPanel.fillStyle(UI_COLORS.panelBg, 0.95);
+    this.backgroundPanel.fillRoundedRect(startX, 0, totalWidth, totalHeight, 8);
 
-    // Orange-brown border
-    this.backgroundPanel.fillStyle(UI_COLORS.borderOuter, 1);
-    this.backgroundPanel.fillRoundedRect(startX + 2, 2, totalWidth - 4, totalHeight - 4, 5);
+    // Subtle top gradient
+    this.backgroundPanel.fillStyle(UI_COLORS.panelLight, 0.3);
+    this.backgroundPanel.fillRoundedRect(startX + 1, 1, totalWidth - 2, totalHeight / 2, { tl: 7, tr: 7, bl: 0, br: 0 });
 
-    // Inner gold border
-    this.backgroundPanel.fillStyle(UI_COLORS.borderGold, 1);
-    this.backgroundPanel.fillRoundedRect(startX + 4, 4, totalWidth - 8, totalHeight - 8, 4);
+    // Border
+    this.backgroundPanel.lineStyle(1, UI_COLORS.borderOuter, 0.6);
+    this.backgroundPanel.strokeRoundedRect(startX, 0, totalWidth, totalHeight, 8);
 
-    // Main cream panel background
-    this.backgroundPanel.fillStyle(UI_COLORS.panelBg, 1);
-    this.backgroundPanel.fillRoundedRect(startX + 6, 6, totalWidth - 12, totalHeight - 12, 3);
-
-    // Top highlight
-    this.backgroundPanel.fillStyle(0xffffff, 0.3);
-    this.backgroundPanel.fillRect(startX + 8, 7, totalWidth - 16, 2);
+    // Top edge highlight
+    this.backgroundPanel.lineStyle(1, UI_COLORS.borderHighlight, 0.2);
+    this.backgroundPanel.beginPath();
+    this.backgroundPanel.moveTo(startX + 10, 1);
+    this.backgroundPanel.lineTo(startX + totalWidth - 10, 1);
+    this.backgroundPanel.strokePath();
 
     this.add(this.backgroundPanel);
   }
