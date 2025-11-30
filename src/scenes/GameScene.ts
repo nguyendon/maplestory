@@ -24,6 +24,7 @@ import { getSkill } from '../skills/SkillData';
 import type { SkillDefinition } from '../skills/SkillData';
 import { InventoryUI } from '../ui/InventoryUI';
 import { EquipmentUI } from '../ui/EquipmentUI';
+import { WorldMapUI } from '../ui/WorldMapUI';
 import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
@@ -41,6 +42,7 @@ export class GameScene extends Phaser.Scene {
   private portals: Portal[] = [];
   private npcs: NPC[] = [];
   private debugText!: Phaser.GameObjects.Text;
+  private debugVisible: boolean = false;
   private playerPlatformCollider!: Phaser.Physics.Arcade.Collider;
   private monsterColliders: Phaser.Physics.Arcade.Collider[] = [];
   private ladderOverlaps: Phaser.Physics.Arcade.Collider[] = [];
@@ -63,6 +65,7 @@ export class GameScene extends Phaser.Scene {
   private keyboardConfigUI!: KeyboardConfigUI;
   private inventoryUI!: InventoryUI;
   private equipmentUI!: EquipmentUI;
+  private worldMapUI!: WorldMapUI;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -126,7 +129,7 @@ export class GameScene extends Phaser.Scene {
     // Set up ladder overlaps - store references for cleanup
     this.setupLadderOverlaps();
 
-    // Debug text (top-right corner)
+    // Debug text (top-right corner) - hidden by default, toggle with F3
     this.debugText = this.add.text(GAME_WIDTH - 10, 10, '', {
       font: '14px monospace',
       color: '#ffffff',
@@ -134,6 +137,7 @@ export class GameScene extends Phaser.Scene {
       padding: { x: 5, y: 5 },
     });
     this.debugText.setOrigin(1, 0);
+    this.debugText.setVisible(this.debugVisible);
 
     // Initialize combat and effects managers
     this.combatManager = new CombatManager(this);
@@ -154,24 +158,12 @@ export class GameScene extends Phaser.Scene {
     // Create skill bar (top-right corner, toggleable with TAB)
     this.skillBar = new SkillBar(this, GAME_WIDTH - 180, 35);
 
-    // Create skill config UI (legacy - keeping for slot-based config)
+    // Create skill config UI (skill tree / level display)
     this.skillConfigUI = new SkillConfigUI(this);
-    this.skillConfigUI.setSkillAssignedCallback((slotIndex, skill) => {
-      this.skillBar.assignSkill(slotIndex, skill);
-    });
-    this.skillConfigUI.setKeyBoundCallback((slotIndex, keyCode, keyDisplay) => {
-      this.skillBar.setSlotKey(slotIndex, keyCode, keyDisplay);
-      this.rebindSkillKeys();
-    });
-    // Initialize with beginner skills (6 slots now)
-    this.skillConfigUI.setCurrentSkills([
-      getSkill('DOUBLE_STRIKE') ?? null,
-      getSkill('THREE_SNAILS') ?? null,
-      getSkill('RECOVERY') ?? null,
-      null,
-      null,
-      null
-    ]);
+    // Set player's job and level for filtering skills
+    this.skillConfigUI.setJobAndLevel(this.playerStats.job, this.playerStats.level);
+    // Give some skill points to test with
+    this.skillConfigUI.setSkillPoints(5);
 
     // Create keyboard config UI (MapleStory style - full keyboard)
     this.keyboardConfigUI = new KeyboardConfigUI(this);
@@ -214,6 +206,10 @@ export class GameScene extends Phaser.Scene {
       this.unequipItem(slot);
     });
 
+    // Create world map UI
+    this.worldMapUI = new WorldMapUI(this);
+    this.worldMapUI.setCurrentMap(this.currentMap.id);
+
     // Set initial skill bindings (beginner skills available at level 1)
     const initialSkillBindings = new Map<string, SkillDefinition>();
     const doubleStrikeInit = getSkill('DOUBLE_STRIKE');
@@ -234,6 +230,9 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('TWO', ACTIONS.MP_POTION);
     initialActionBindings.set('I', ACTIONS.INVENTORY);
     initialActionBindings.set('E', ACTIONS.EQUIPMENT);
+    initialActionBindings.set('W', ACTIONS.WORLD_MAP);
+    initialActionBindings.set('M', ACTIONS.MINIMAP);
+    initialActionBindings.set('ESC', ACTIONS.MENU);
     initialActionBindings.set('F5', ACTIONS.SAVE);
     this.actionBindings = initialActionBindings;
 
@@ -421,33 +420,15 @@ export class GameScene extends Phaser.Scene {
       this.skillConfigUI.toggle();
     });
 
-    // Apply initial action bindings to player
-    this.applyActionBindings();
-
-    // ESC key to open keyboard config (MapleStory style)
-    this.input.keyboard?.on('keydown-ESC', () => {
-      // If dialogue is open, close it instead
-      if (this.dialogueBox.isOpen) {
-        this.dialogueBox.handleInput('ESC');
-        return;
-      }
-      if (this.inventoryUI.isOpen || this.equipmentUI.isOpen) {
-        this.inventoryUI.close();
-        this.equipmentUI.close();
-        return;
-      }
-      if (this.skillConfigUI.isOpen) {
-        this.skillConfigUI.close();
-        return;
-      }
-      if (this.keyboardConfigUI.isOpen) {
-        this.keyboardConfigUI.close();
-        this.skillBar.setVisible(true);
-      } else {
-        this.keyboardConfigUI.open();
-        this.skillBar.setVisible(false);
-      }
+    // F3 key to toggle debug info (hardcoded, not configurable)
+    this.input.keyboard?.on('keydown-F3', () => {
+      this.debugVisible = !this.debugVisible;
+      this.debugText.setVisible(this.debugVisible);
     });
+
+    // Apply initial action bindings to player
+    // Note: M (World Map) and ESC (Menu) are now configurable via action bindings
+    this.applyActionBindings();
   }
 
   private applyKeyboardBindings(bindings: Map<string, SkillDefinition>): void {
@@ -601,7 +582,53 @@ export class GameScene extends Phaser.Scene {
       case 'SAVE':
         this.saveGame();
         break;
+      case 'WORLD_MAP':
+        if (!this.dialogueBox.isOpen && !this.keyboardConfigUI.isOpen) {
+          this.worldMapUI.toggle();
+        }
+        break;
+      case 'MINIMAP':
+        this.toggleMinimap();
+        break;
+      case 'MENU':
+        this.handleMenuAction();
+        break;
       // JUMP and ATTACK are handled directly by the Player class
+    }
+  }
+
+  private handleMenuAction(): void {
+    // Close any open menus in order of priority, or open keyboard config
+    if (this.dialogueBox.isOpen) {
+      this.dialogueBox.handleInput('ESC');
+      return;
+    }
+    if (this.inventoryUI.isOpen || this.equipmentUI.isOpen) {
+      this.inventoryUI.close();
+      this.equipmentUI.close();
+      return;
+    }
+    if (this.skillConfigUI.isOpen) {
+      this.skillConfigUI.close();
+      return;
+    }
+    if (this.worldMapUI.isOpen) {
+      this.worldMapUI.close();
+      return;
+    }
+    if (this.keyboardConfigUI.isOpen) {
+      this.keyboardConfigUI.close();
+      this.skillBar.setVisible(true);
+    } else {
+      this.keyboardConfigUI.open();
+      this.skillBar.setVisible(false);
+    }
+  }
+
+  private toggleMinimap(): void {
+    const uiScene = this.scene.get('UIScene') as UIScene;
+    if (uiScene) {
+      uiScene.toggleMinimap();
     }
   }
 
@@ -1121,6 +1148,7 @@ export class GameScene extends Phaser.Scene {
 
     // Update UI
     this.events.emit('map:changed', { mapName: newMap.name, isSafeZone: newMap.isSafeZone });
+    this.worldMapUI.setCurrentMap(mapId);
 
     console.log(`Loaded map: ${newMap.name} (${newMap.backgroundTheme}${newMap.isSafeZone ? ', safe zone' : ''})`);
   }
