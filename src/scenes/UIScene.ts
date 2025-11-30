@@ -64,10 +64,6 @@ export default class UIScene extends Phaser.Scene {
     // Mini-map frame placeholder (top-right)
     this.createMiniMapFrame();
 
-    // M key to toggle minimap
-    this.input.keyboard?.on('keydown-M', () => {
-      this.miniMapContainer.setVisible(!this.miniMapContainer.visible);
-    });
 
     // Set up event listeners
     const gameScene = this.scene.get('GameScene');
@@ -402,7 +398,7 @@ export default class UIScene extends Phaser.Scene {
     }
 
     const percentage = max > 0 ? ((current / max) * 100).toFixed(2) : '0.00';
-    this.expBar.text.setText(`${percentage}%`);
+    this.expBar.text.setText(`${current} / ${max}  (${percentage}%)`);
 
     this.levelText.setText(`Lv.${level}`);
   }
@@ -517,6 +513,12 @@ export default class UIScene extends Phaser.Scene {
   public setMinimapVisible(visible: boolean): void {
     if (this.miniMapContainer) {
       this.miniMapContainer.setVisible(visible);
+    }
+  }
+
+  public toggleMinimap(): void {
+    if (this.miniMapContainer) {
+      this.miniMapContainer.setVisible(!this.miniMapContainer.visible);
     }
   }
 }
