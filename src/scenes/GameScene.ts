@@ -28,7 +28,10 @@ import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
 import { defaultSaveManager, type SaveData } from '../systems/SaveManager';
-import { getDefaultMap, getMap, type MapDefinition } from '../config/MapData';
+import type UIScene from './UIScene';
+import { getDefaultMap, getMap, type MapDefinition, type BackgroundTheme } from '../config/MapData';
+import { JobId, getJob } from '../systems/JobData';
+import { getSkillsForJobAndLevel } from '../skills/SkillData';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -76,6 +79,9 @@ export class GameScene extends Phaser.Scene {
   // Current map data
   private currentMap!: MapDefinition;
 
+  // Background objects (for cleanup when changing maps)
+  private backgroundObjects: Phaser.GameObjects.GameObject[] = [];
+
   constructor() {
     super({ key: SCENES.GAME });
   }
@@ -102,16 +108,7 @@ export class GameScene extends Phaser.Scene {
     this.inventory = new Inventory(24);
     this.equipment = new Equipment();
 
-    // Try to load saved game, otherwise give starter items
-    this.loadGame().then(loaded => {
-      if (!loaded) {
-        this.giveStarterItems();
-      }
-      // Update UI after load
-      this.emitPlayerStats();
-      if (this.inventoryUI) this.inventoryUI.refresh();
-      if (this.equipmentUI) this.equipmentUI.refresh();
-    });
+    // Note: loadGame() is called after UI setup (see below)
 
     // Set up auto-save every 10 seconds
     this.time.addEvent({
@@ -166,12 +163,12 @@ export class GameScene extends Phaser.Scene {
       this.skillBar.setSlotKey(slotIndex, keyCode, keyDisplay);
       this.rebindSkillKeys();
     });
-    // Initialize with current skills (6 slots now)
+    // Initialize with beginner skills (6 slots now)
     this.skillConfigUI.setCurrentSkills([
-      getSkill('POWER_STRIKE') ?? null,
       getSkill('DOUBLE_STRIKE') ?? null,
-      getSkill('SLASH_BLAST') ?? null,
-      getSkill('RAGE') ?? null,
+      getSkill('THREE_SNAILS') ?? null,
+      getSkill('RECOVERY') ?? null,
+      null,
       null,
       null
     ]);
@@ -217,16 +214,14 @@ export class GameScene extends Phaser.Scene {
       this.unequipItem(slot);
     });
 
-    // Set initial skill bindings
+    // Set initial skill bindings (beginner skills available at level 1)
     const initialSkillBindings = new Map<string, SkillDefinition>();
-    const powerStrikeInit = getSkill('POWER_STRIKE');
     const doubleStrikeInit = getSkill('DOUBLE_STRIKE');
-    const slashBlastInit = getSkill('SLASH_BLAST');
-    const rageInit = getSkill('RAGE');
-    if (powerStrikeInit) initialSkillBindings.set('A', powerStrikeInit);
-    if (doubleStrikeInit) initialSkillBindings.set('S', doubleStrikeInit);
-    if (slashBlastInit) initialSkillBindings.set('D', slashBlastInit);
-    if (rageInit) initialSkillBindings.set('F', rageInit);
+    const threeSnailsInit = getSkill('THREE_SNAILS');
+    const recoveryInit = getSkill('RECOVERY');
+    if (doubleStrikeInit) initialSkillBindings.set('A', doubleStrikeInit);
+    if (threeSnailsInit) initialSkillBindings.set('S', threeSnailsInit);
+    if (recoveryInit) initialSkillBindings.set('D', recoveryInit);
 
     // Set initial action bindings
     const initialActionBindings = new Map<string, ActionDefinition>();
@@ -257,6 +252,12 @@ export class GameScene extends Phaser.Scene {
 
     // Listen for dialogue events
     this.events.on('dialogue:loadNext', (dialogueKey: string) => {
+      // Handle job advancement dialogues
+      if (dialogueKey.startsWith('job_confirm_')) {
+        this.handleJobAdvancement(dialogueKey);
+        return;
+      }
+
       const dialogue = getDialogue(dialogueKey);
       if (dialogue) {
         this.dialogueBox.openDialogue(dialogue);
@@ -265,6 +266,17 @@ export class GameScene extends Phaser.Scene {
 
     // Launch UI Scene
     this.scene.launch('UIScene');
+
+    // Load saved game (must happen after all UI is set up)
+    this.loadGame().then(loaded => {
+      if (!loaded) {
+        this.giveStarterItems();
+      }
+      // Update UI after load
+      this.emitPlayerStats();
+      if (this.inventoryUI) this.inventoryUI.refresh();
+      if (this.equipmentUI) this.equipmentUI.refresh();
+    });
 
     // Send initial stats to UI
     this.time.delayedCall(100, () => {
@@ -290,6 +302,10 @@ export class GameScene extends Phaser.Scene {
       this.events.emit('player:level-up', data);
       this.emitExpUpdate();
       this.emitPlayerStats();
+      // Update keyboard config with new level (may unlock new skills)
+      if (this.keyboardConfigUI) {
+        this.keyboardConfigUI.updateJobAndLevel(this.playerStats.job, data.newLevel);
+      }
     });
   }
 
@@ -326,6 +342,7 @@ export class GameScene extends Phaser.Scene {
       currentMP: () => this.playerStats.currentMP,
       useMP: (amount: number) => this.playerStats.useMP(amount),
       playerLevel: () => this.playerStats.level,
+      playerJob: () => this.playerStats.job,
       getATK: () => {
         const baseATK = this.playerStats.getATK();
         const equipATK = this.equipment.getTotalStats().ATK || 0;
@@ -337,16 +354,14 @@ export class GameScene extends Phaser.Scene {
     // Initialize skill effects
     this.skillEffects = new SkillEffects(this);
 
-    // Assign default skills to hotbar
-    const powerStrike = getSkill('POWER_STRIKE');
+    // Assign default skills to hotbar (beginner skills)
     const doubleStrike = getSkill('DOUBLE_STRIKE');
-    const slashBlast = getSkill('SLASH_BLAST');
-    const rage = getSkill('RAGE');
+    const threeSnails = getSkill('THREE_SNAILS');
+    const recovery = getSkill('RECOVERY');
 
-    if (powerStrike) this.skillBar.assignSkill(0, powerStrike);
-    if (doubleStrike) this.skillBar.assignSkill(1, doubleStrike);
-    if (slashBlast) this.skillBar.assignSkill(2, slashBlast);
-    if (rage) this.skillBar.assignSkill(3, rage);
+    if (doubleStrike) this.skillBar.assignSkill(0, doubleStrike);
+    if (threeSnails) this.skillBar.assignSkill(1, threeSnails);
+    if (recovery) this.skillBar.assignSkill(2, recovery);
 
     // Set cooldown callback
     this.skillBar.setCooldownCallback((skillId: string) => {
@@ -1086,6 +1101,9 @@ export class GameScene extends Phaser.Scene {
     // === LOAD PHASE ===
     this.currentMap = newMap;
 
+    // Recreate background for new theme
+    this.createBackground();
+
     // Recreate map elements
     this.createPlatforms();
     this.createLadders();
@@ -1102,9 +1120,9 @@ export class GameScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
 
     // Update UI
-    this.events.emit('map:changed', { mapName: newMap.name });
+    this.events.emit('map:changed', { mapName: newMap.name, isSafeZone: newMap.isSafeZone });
 
-    console.log(`Loaded map: ${newMap.name}`);
+    console.log(`Loaded map: ${newMap.name} (${newMap.backgroundTheme}${newMap.isSafeZone ? ', safe zone' : ''})`);
   }
 
   private setupInteractionKeys(): void {
@@ -1202,59 +1220,374 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createBackground(): void {
-    // Create a beautiful gradient sky
-    const skyCanvas = this.textures.createCanvas('sky-bg', GAME_WIDTH, GAME_HEIGHT);
-    if (skyCanvas) {
-      const ctx = skyCanvas.context;
+    // Clear existing background objects
+    this.backgroundObjects.forEach(obj => obj.destroy());
+    this.backgroundObjects = [];
 
-      // Gradient sky - sunset/dawn style
-      const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-      gradient.addColorStop(0, '#1a1a2e');      // Deep blue at top
-      gradient.addColorStop(0.3, '#16213e');    // Dark blue
-      gradient.addColorStop(0.5, '#0f3460');    // Medium blue
-      gradient.addColorStop(0.7, '#e94560');    // Pink/orange horizon
-      gradient.addColorStop(0.85, '#ff9a3c');   // Orange
-      gradient.addColorStop(1, '#ffd93d');      // Yellow at bottom
-
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-      // Add stars at the top
-      ctx.fillStyle = '#ffffff';
-      for (let i = 0; i < 50; i++) {
-        const starX = Math.random() * GAME_WIDTH;
-        const starY = Math.random() * (GAME_HEIGHT * 0.4);
-        const starSize = Math.random() * 2 + 1;
-        ctx.globalAlpha = Math.random() * 0.5 + 0.3;
-        ctx.beginPath();
-        ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-
-      skyCanvas.refresh();
+    // Remove old sky texture if it exists
+    if (this.textures.exists('sky-bg')) {
+      this.textures.remove('sky-bg');
     }
+
+    const theme = this.currentMap.backgroundTheme;
+    this.createThemedBackground(theme);
+  }
+
+  private createThemedBackground(theme: BackgroundTheme): void {
+    const skyCanvas = this.textures.createCanvas('sky-bg', GAME_WIDTH, GAME_HEIGHT);
+    if (!skyCanvas) return;
+
+    const ctx = skyCanvas.context;
+
+    switch (theme) {
+      case 'field':
+        this.drawFieldSky(ctx);
+        break;
+      case 'town':
+        this.drawTownSky(ctx);
+        break;
+      case 'forest':
+        this.drawForestSky(ctx);
+        break;
+      case 'dungeon':
+        this.drawDungeonSky(ctx);
+        break;
+      case 'night':
+        this.drawNightSky(ctx);
+        break;
+      default:
+        this.drawFieldSky(ctx);
+    }
+
+    skyCanvas.refresh();
 
     const sky = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'sky-bg');
     sky.setDepth(-100);
+    this.backgroundObjects.push(sky);
 
-    // Distant mountains (back layer)
-    this.createMountainLayer(-80, 0x2d3436, 0.8);
+    // Add theme-specific decorations
+    switch (theme) {
+      case 'field':
+        this.createFieldDecorations();
+        break;
+      case 'town':
+        this.createTownDecorations();
+        break;
+      case 'forest':
+        this.createForestDecorations();
+        break;
+      case 'dungeon':
+        this.createDungeonDecorations();
+        break;
+      case 'night':
+        this.createNightDecorations();
+        break;
+    }
+  }
 
-    // Middle mountains
-    this.createMountainLayer(-60, 0x636e72, 0.6);
+  private drawFieldSky(ctx: CanvasRenderingContext2D): void {
+    // Sunset/dawn gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.3, '#16213e');
+    gradient.addColorStop(0.5, '#0f3460');
+    gradient.addColorStop(0.7, '#e94560');
+    gradient.addColorStop(0.85, '#ff9a3c');
+    gradient.addColorStop(1, '#ffd93d');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Front hills
-    this.createHillLayer(-40, 0x74b9ff, 0.4);
+    // Stars at top
+    this.drawStars(ctx, 50, 0.4);
+  }
 
-    // Clouds layer
+  private drawTownSky(ctx: CanvasRenderingContext2D): void {
+    // Bright daytime sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#4a90d9');
+    gradient.addColorStop(0.4, '#87ceeb');
+    gradient.addColorStop(0.7, '#b0e0e6');
+    gradient.addColorStop(1, '#f0f8ff');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
+
+  private drawForestSky(ctx: CanvasRenderingContext2D): void {
+    // Green-tinted misty forest sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#2d5a3d');
+    gradient.addColorStop(0.3, '#3d7a5a');
+    gradient.addColorStop(0.6, '#6aaa7a');
+    gradient.addColorStop(0.8, '#8fbc8f');
+    gradient.addColorStop(1, '#90ee90');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Add fog/mist effect
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    for (let i = 0; i < 20; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = GAME_HEIGHT * 0.5 + Math.random() * GAME_HEIGHT * 0.5;
+      const width = 100 + Math.random() * 200;
+      const height = 30 + Math.random() * 50;
+      ctx.beginPath();
+      ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  private drawDungeonSky(ctx: CanvasRenderingContext2D): void {
+    // Dark stone dungeon
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#1a1a1a');
+    gradient.addColorStop(0.5, '#2d2d2d');
+    gradient.addColorStop(1, '#3d3d3d');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Add stone texture effect
+    ctx.fillStyle = 'rgba(80, 80, 80, 0.3)';
+    for (let i = 0; i < 100; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = Math.random() * GAME_HEIGHT;
+      const size = 2 + Math.random() * 4;
+      ctx.fillRect(x, y, size, size);
+    }
+  }
+
+  private drawNightSky(ctx: CanvasRenderingContext2D): void {
+    // Deep night sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#0a0a15');
+    gradient.addColorStop(0.3, '#0f0f25');
+    gradient.addColorStop(0.6, '#151530');
+    gradient.addColorStop(1, '#1a1a40');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Many stars
+    this.drawStars(ctx, 150, 0.8);
+
+    // Moon
+    ctx.fillStyle = '#fffacd';
+    ctx.beginPath();
+    ctx.arc(GAME_WIDTH - 150, 100, 50, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Moon glow
+    const moonGlow = ctx.createRadialGradient(GAME_WIDTH - 150, 100, 50, GAME_WIDTH - 150, 100, 120);
+    moonGlow.addColorStop(0, 'rgba(255, 250, 205, 0.3)');
+    moonGlow.addColorStop(1, 'rgba(255, 250, 205, 0)');
+    ctx.fillStyle = moonGlow;
+    ctx.beginPath();
+    ctx.arc(GAME_WIDTH - 150, 100, 120, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawStars(ctx: CanvasRenderingContext2D, count: number, maxHeight: number): void {
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = Math.random() * (GAME_HEIGHT * maxHeight);
+      const size = Math.random() * 2 + 1;
+      ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  private createFieldDecorations(): void {
+    // Mountains
+    this.backgroundObjects.push(this.createMountainLayer(-80, 0x2d3436, 0.8));
+    this.backgroundObjects.push(this.createMountainLayer(-60, 0x636e72, 0.6));
+    this.backgroundObjects.push(this.createHillLayer(-40, 0x74b9ff, 0.4));
     this.createCloudLayer();
-
-    // Decorative trees in background
     this.createTreeLayer();
   }
 
-  private createMountainLayer(depth: number, color: number, heightMultiplier: number): void {
+  private createTownDecorations(): void {
+    // Buildings in background
+    this.createTownBuildings();
+    this.createCloudLayer();
+
+    // Decorative flowers/grass
+    const grassGraphics = this.add.graphics();
+    grassGraphics.setDepth(-15);
+    grassGraphics.fillStyle(0x90ee90, 0.5);
+    for (let x = 0; x < GAME_WIDTH; x += 20) {
+      const height = 10 + Math.random() * 15;
+      grassGraphics.fillRect(x, GAME_HEIGHT - 65 - height, 3, height);
+    }
+    this.backgroundObjects.push(grassGraphics);
+  }
+
+  private createForestDecorations(): void {
+    // Dense tree layers
+    this.backgroundObjects.push(this.createMountainLayer(-80, 0x1a4d2e, 0.9));
+    this.backgroundObjects.push(this.createHillLayer(-60, 0x228b22, 0.7));
+
+    // Tree silhouettes
+    const treeGraphics = this.add.graphics();
+    treeGraphics.setDepth(-30);
+    this.backgroundObjects.push(treeGraphics);
+
+    for (let i = 0; i < 15; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const height = 150 + Math.random() * 200;
+      const width = 60 + Math.random() * 80;
+
+      treeGraphics.fillStyle(0x1a4d2e, 0.6);
+      // Tree trunk
+      treeGraphics.fillRect(x - 10, GAME_HEIGHT - 60 - height * 0.3, 20, height * 0.3);
+      // Tree foliage (triangle)
+      treeGraphics.fillTriangle(
+        x, GAME_HEIGHT - 60 - height,
+        x - width / 2, GAME_HEIGHT - 60 - height * 0.3,
+        x + width / 2, GAME_HEIGHT - 60 - height * 0.3
+      );
+    }
+
+    // Vines hanging from top
+    const vineGraphics = this.add.graphics();
+    vineGraphics.setDepth(-10);
+    vineGraphics.lineStyle(3, 0x228b22, 0.7);
+    this.backgroundObjects.push(vineGraphics);
+
+    for (let i = 0; i < 10; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const length = 50 + Math.random() * 150;
+      vineGraphics.beginPath();
+      vineGraphics.moveTo(x, 0);
+      vineGraphics.lineTo(x + Math.sin(length * 0.1) * 20, length);
+      vineGraphics.strokePath();
+    }
+  }
+
+  private createDungeonDecorations(): void {
+    // Stone pillars
+    const pillarGraphics = this.add.graphics();
+    pillarGraphics.setDepth(-30);
+    this.backgroundObjects.push(pillarGraphics);
+
+    const pillarPositions = [100, 300, 500, 700, 900, 1100];
+    pillarPositions.forEach(x => {
+      pillarGraphics.fillStyle(0x4a4a4a, 0.8);
+      pillarGraphics.fillRect(x - 20, 50, 40, GAME_HEIGHT - 110);
+
+      // Pillar top
+      pillarGraphics.fillStyle(0x5a5a5a, 0.8);
+      pillarGraphics.fillRect(x - 25, 40, 50, 20);
+
+      // Cracks
+      pillarGraphics.lineStyle(2, 0x3a3a3a, 0.6);
+      pillarGraphics.beginPath();
+      pillarGraphics.moveTo(x - 5, 100);
+      pillarGraphics.lineTo(x + 10, 200);
+      pillarGraphics.lineTo(x - 5, 300);
+      pillarGraphics.strokePath();
+    });
+
+    // Torches (with animated glow)
+    [200, 600, 1000].forEach(x => {
+      const torch = this.add.graphics();
+      torch.setDepth(-20);
+      this.backgroundObjects.push(torch);
+
+      // Torch holder
+      torch.fillStyle(0x5a5a5a, 1);
+      torch.fillRect(x - 5, 150, 10, 30);
+
+      // Flame (orange glow)
+      torch.fillStyle(0xff6600, 0.8);
+      torch.fillCircle(x, 140, 12);
+      torch.fillStyle(0xffcc00, 0.6);
+      torch.fillCircle(x, 135, 8);
+
+      // Animate flame
+      this.tweens.add({
+        targets: torch,
+        alpha: { from: 0.7, to: 1 },
+        duration: 200 + Math.random() * 200,
+        yoyo: true,
+        repeat: -1
+      });
+    });
+  }
+
+  private createNightDecorations(): void {
+    // Similar to dungeon but with some distant lights
+    this.createDungeonDecorations();
+
+    // Glowing particles (fireflies or magic)
+    for (let i = 0; i < 20; i++) {
+      const particle = this.add.graphics();
+      particle.setDepth(-5);
+      this.backgroundObjects.push(particle);
+
+      const x = Math.random() * GAME_WIDTH;
+      const y = 100 + Math.random() * (GAME_HEIGHT - 200);
+
+      particle.fillStyle(0x88ffff, 0.8);
+      particle.fillCircle(0, 0, 3);
+      particle.setPosition(x, y);
+
+      // Float animation
+      this.tweens.add({
+        targets: particle,
+        y: y - 20 - Math.random() * 30,
+        x: x + (Math.random() - 0.5) * 40,
+        alpha: { from: 0.3, to: 0.9 },
+        duration: 2000 + Math.random() * 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+  }
+
+  private createTownBuildings(): void {
+    const buildingGraphics = this.add.graphics();
+    buildingGraphics.setDepth(-40);
+    this.backgroundObjects.push(buildingGraphics);
+
+    // Background buildings (shops, houses)
+    const buildings = [
+      { x: 100, width: 120, height: 180, color: 0x8b4513 },
+      { x: 280, width: 100, height: 150, color: 0xa0522d },
+      { x: 450, width: 150, height: 200, color: 0xcd853f },
+      { x: 680, width: 130, height: 170, color: 0x8b4513 },
+      { x: 880, width: 110, height: 160, color: 0xa0522d },
+      { x: 1050, width: 140, height: 190, color: 0xcd853f },
+    ];
+
+    buildings.forEach(b => {
+      const baseY = GAME_HEIGHT - 60;
+
+      // Building body
+      buildingGraphics.fillStyle(b.color, 0.7);
+      buildingGraphics.fillRect(b.x, baseY - b.height, b.width, b.height);
+
+      // Roof
+      buildingGraphics.fillStyle(0x654321, 0.8);
+      buildingGraphics.fillTriangle(
+        b.x - 10, baseY - b.height,
+        b.x + b.width / 2, baseY - b.height - 40,
+        b.x + b.width + 10, baseY - b.height
+      );
+
+      // Window
+      buildingGraphics.fillStyle(0xffff99, 0.6);
+      buildingGraphics.fillRect(b.x + b.width / 2 - 15, baseY - b.height + 30, 30, 30);
+
+      // Door
+      buildingGraphics.fillStyle(0x4a3728, 0.8);
+      buildingGraphics.fillRect(b.x + b.width / 2 - 12, baseY - 50, 24, 50);
+    });
+  }
+
+  private createMountainLayer(depth: number, color: number, heightMultiplier: number): Phaser.GameObjects.Graphics {
     const graphics = this.add.graphics();
     graphics.setDepth(depth);
 
@@ -1280,9 +1613,11 @@ export class GameScene extends Phaser.Scene {
     }
     graphics.closePath();
     graphics.fillPath();
+
+    return graphics;
   }
 
-  private createHillLayer(depth: number, color: number, heightMultiplier: number): void {
+  private createHillLayer(depth: number, color: number, heightMultiplier: number): Phaser.GameObjects.Graphics {
     const graphics = this.add.graphics();
     graphics.setDepth(depth);
 
@@ -1301,6 +1636,8 @@ export class GameScene extends Phaser.Scene {
     graphics.lineTo(GAME_WIDTH, GAME_HEIGHT);
     graphics.closePath();
     graphics.fillPath();
+
+    return graphics;
   }
 
   private createCloudLayer(): void {
@@ -1317,6 +1654,7 @@ export class GameScene extends Phaser.Scene {
     cloudPositions.forEach(cloud => {
       const cloudContainer = this.add.container(cloud.x, cloud.y);
       cloudContainer.setDepth(-50);
+      this.backgroundObjects.push(cloudContainer);
 
       const graphics = this.add.graphics();
 
@@ -1355,6 +1693,7 @@ export class GameScene extends Phaser.Scene {
       const treeY = GAME_HEIGHT - 90;
       const graphics = this.add.graphics();
       graphics.setDepth(-20);
+      this.backgroundObjects.push(graphics);
 
       // Tree trunk
       graphics.fillStyle(0x5d4037, 1);
@@ -1394,6 +1733,120 @@ export class GameScene extends Phaser.Scene {
 
     // Give some starting mesos
     this.inventory.addMesos(500);
+  }
+
+  /**
+   * Handle job advancement when player confirms a job choice
+   */
+  private handleJobAdvancement(dialogueKey: string): void {
+    // Map dialogue keys to job IDs
+    const jobMap: Record<string, JobId> = {
+      'job_confirm_warrior': JobId.WARRIOR,
+      'job_confirm_mage': JobId.MAGE,
+      'job_confirm_archer': JobId.ARCHER,
+      'job_confirm_thief': JobId.THIEF
+    };
+
+    const targetJob = jobMap[dialogueKey];
+    if (!targetJob) return;
+
+    // Check if player can advance
+    if (!this.playerStats.canAdvanceToJob(targetJob)) {
+      const dialogue = getDialogue('job_level_required');
+      if (dialogue) {
+        this.dialogueBox.openDialogue(dialogue);
+      }
+      return;
+    }
+
+    // Advance to the job
+    this.playerStats.setJob(targetJob);
+
+    // Show confirmation dialogue
+    const dialogue = getDialogue(dialogueKey);
+    if (dialogue) {
+      this.dialogueBox.openDialogue(dialogue);
+    }
+
+    // Show job advancement effect
+    this.showJobAdvancementEffect(targetJob);
+
+    // Update skill bindings for new job
+    this.updateSkillsForJob(targetJob);
+
+    // Emit event for UI updates
+    this.events.emit('job:changed', { job: targetJob });
+  }
+
+  private showJobAdvancementEffect(jobId: JobId): void {
+    const jobDef = getJob(jobId);
+
+    // Create flashy effect
+    const flash = this.add.graphics();
+    flash.fillStyle(jobDef.color, 0.5);
+    flash.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    flash.setDepth(1000);
+
+    // Flash and fade
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 1000,
+      onComplete: () => flash.destroy()
+    });
+
+    // Show floating text
+    const text = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 50,
+      `Job Advanced!\n${jobDef.name}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '32px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 4,
+        align: 'center'
+      }
+    );
+    text.setOrigin(0.5);
+    text.setDepth(1001);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 50,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => text.destroy()
+    });
+  }
+
+  private updateSkillsForJob(jobId: JobId): void {
+    // Update keyboard config UI with new job and level
+    this.keyboardConfigUI.updateJobAndLevel(jobId, this.playerStats.level);
+
+    // Get skills available for this job
+    const jobSkills = getSkillsForJobAndLevel(jobId, this.playerStats.level);
+
+    // Update keyboard config UI with new job skills
+    const skillBindings = new Map<string, SkillDefinition>();
+    const keys = ['A', 'S', 'D', 'F', 'G'];
+
+    jobSkills.slice(0, 5).forEach((skill, index) => {
+      if (keys[index]) {
+        skillBindings.set(keys[index], skill);
+      }
+    });
+
+    // Keep existing action bindings
+    const actionBindings = this.keyboardConfigUI.getActionBindings();
+
+    // Apply new skill bindings
+    this.keyboardConfigUI.setInitialBindings(skillBindings, actionBindings);
+
+    // Rebind skill keys
+    this.rebindSkillKeys();
   }
 
   /**
@@ -1651,12 +2104,41 @@ export class GameScene extends Phaser.Scene {
    * Save the current game state
    */
   private async saveGame(): Promise<void> {
+    // Build keyboard bindings save data
+    const skillBindings = this.keyboardConfigUI.getSkillBindings();
+    const actionBindings = this.keyboardConfigUI.getActionBindings();
+    const keyBindingsSave: { skills: Record<string, string>; actions: Record<string, string> } = {
+      skills: {},
+      actions: {}
+    };
+    skillBindings.forEach((skill, key) => {
+      keyBindingsSave.skills[key] = skill.id;
+    });
+    actionBindings.forEach((action, key) => {
+      keyBindingsSave.actions[key] = action.id;
+    });
+
+    // Get menu states from UI scene
+    const uiScene = this.scene.get('UIScene') as UIScene;
+    const minimapVisible = uiScene?.isMinimapVisible() ?? true;
+    const skillBarVisible = this.skillBar?.visible ?? true;
+
     const saveData: SaveData = {
       version: 1,
       timestamp: Date.now(),
       character: this.playerStats.toJSON(),
       inventory: this.inventory.toJSON(),
-      equipment: this.equipment.toJSON()
+      equipment: this.equipment.toJSON(),
+      keyBindings: keyBindingsSave,
+      mapState: {
+        mapId: this.currentMap.id,
+        playerX: this.player.x,
+        playerY: this.player.y
+      },
+      menuState: {
+        minimapVisible,
+        skillBarVisible
+      }
     };
 
     const result = await defaultSaveManager.save(saveData);
@@ -1697,6 +2179,57 @@ export class GameScene extends Phaser.Scene {
       return null;
     });
 
+    // Load map state
+    if (data.mapState) {
+      const targetMap = getMap(data.mapState.mapId);
+      if (targetMap && data.mapState.mapId !== this.currentMap.id) {
+        // Load the saved map
+        this.loadMap(data.mapState.mapId, data.mapState.playerX, data.mapState.playerY);
+      } else if (targetMap) {
+        // Same map, just move player to saved position
+        this.player.setPosition(data.mapState.playerX, data.mapState.playerY);
+      }
+    }
+
+    // Load keyboard bindings
+    if (data.keyBindings) {
+      const loadedSkillBindings = new Map<string, SkillDefinition>();
+      const loadedActionBindings = new Map<string, ActionDefinition>();
+
+      // Load skill bindings
+      for (const [key, skillId] of Object.entries(data.keyBindings.skills)) {
+        const skill = getSkill(skillId);
+        if (skill) {
+          loadedSkillBindings.set(key, skill);
+        }
+      }
+
+      // Load action bindings
+      for (const [key, actionId] of Object.entries(data.keyBindings.actions)) {
+        const action = ACTIONS[actionId];
+        if (action) {
+          loadedActionBindings.set(key, action);
+        }
+      }
+
+      // Apply the loaded bindings
+      this.keyboardConfigUI.setInitialBindings(loadedSkillBindings, loadedActionBindings);
+      this.actionBindings = loadedActionBindings;
+      this.applyActionBindings();
+      this.rebindSkillKeys();
+    }
+
+    // Load menu states
+    if (data.menuState) {
+      const uiScene = this.scene.get('UIScene') as UIScene;
+      if (uiScene) {
+        uiScene.setMinimapVisible(data.menuState.minimapVisible);
+      }
+      if (this.skillBar) {
+        this.skillBar.setVisible(data.menuState.skillBarVisible);
+      }
+    }
+
     console.log('Game loaded successfully');
     return true;
   }
@@ -1705,12 +2238,41 @@ export class GameScene extends Phaser.Scene {
    * Auto-save silently (no visual feedback unless error)
    */
   private async autoSave(): Promise<void> {
+    // Build keyboard bindings save data
+    const skillBindings = this.keyboardConfigUI.getSkillBindings();
+    const actionBindings = this.keyboardConfigUI.getActionBindings();
+    const keyBindingsSave: { skills: Record<string, string>; actions: Record<string, string> } = {
+      skills: {},
+      actions: {}
+    };
+    skillBindings.forEach((skill, key) => {
+      keyBindingsSave.skills[key] = skill.id;
+    });
+    actionBindings.forEach((action, key) => {
+      keyBindingsSave.actions[key] = action.id;
+    });
+
+    // Get menu states from UI scene
+    const uiScene = this.scene.get('UIScene') as UIScene;
+    const minimapVisible = uiScene?.isMinimapVisible() ?? true;
+    const skillBarVisible = this.skillBar?.visible ?? true;
+
     const saveData: SaveData = {
       version: 1,
       timestamp: Date.now(),
       character: this.playerStats.toJSON(),
       inventory: this.inventory.toJSON(),
-      equipment: this.equipment.toJSON()
+      equipment: this.equipment.toJSON(),
+      keyBindings: keyBindingsSave,
+      mapState: {
+        mapId: this.currentMap.id,
+        playerX: this.player.x,
+        playerY: this.player.y
+      },
+      menuState: {
+        minimapVisible,
+        skillBarVisible
+      }
     };
 
     const result = await defaultSaveManager.save(saveData);
