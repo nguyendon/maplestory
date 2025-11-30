@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { SkillDefinition } from './SkillData';
 import { SkillType } from './SkillData';
+import { JobId } from '../systems/JobData';
 
 export interface ActiveBuff {
   skillId: string;
@@ -23,6 +24,7 @@ export class SkillManager extends Phaser.Events.EventEmitter {
   private currentMP: () => number;
   private useMP: (amount: number) => boolean;
   private playerLevel: () => number;
+  private playerJob: () => JobId;
   private getATK: () => number;
 
   constructor(
@@ -31,6 +33,7 @@ export class SkillManager extends Phaser.Events.EventEmitter {
       currentMP: () => number;
       useMP: (amount: number) => boolean;
       playerLevel: () => number;
+      playerJob: () => JobId;
       getATK: () => number;
     }
   ) {
@@ -39,10 +42,17 @@ export class SkillManager extends Phaser.Events.EventEmitter {
     this.currentMP = options.currentMP;
     this.useMP = options.useMP;
     this.playerLevel = options.playerLevel;
+    this.playerJob = options.playerJob;
     this.getATK = options.getATK;
   }
 
   canUseSkill(skill: SkillDefinition): { canUse: boolean; reason?: string } {
+    // Check job requirement (Beginner skills can be used by anyone)
+    const currentJob = this.playerJob();
+    if (skill.job !== JobId.BEGINNER && skill.job !== currentJob) {
+      return { canUse: false, reason: `Requires ${skill.job} job` };
+    }
+
     // Check level requirement
     if (this.playerLevel() < skill.requiredLevel) {
       return { canUse: false, reason: `Requires level ${skill.requiredLevel}` };
