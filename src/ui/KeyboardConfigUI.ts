@@ -21,6 +21,9 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   MP_POTION: { id: 'MP_POTION', name: 'MP Pot', color: 0x4ecdc4 },
   INVENTORY: { id: 'INVENTORY', name: 'Inventory', color: 0x8b4513 },
   EQUIPMENT: { id: 'EQUIPMENT', name: 'Equip', color: 0x4a6fa5 },
+  WORLD_MAP: { id: 'WORLD_MAP', name: 'World Map', color: 0x5a8f5a },
+  MINIMAP: { id: 'MINIMAP', name: 'Minimap', color: 0x5a7f8a },
+  MENU: { id: 'MENU', name: 'Menu', color: 0x6a6a8a },
   SAVE: { id: 'SAVE', name: 'Save', color: 0x228b22 },
 };
 
@@ -81,6 +84,12 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private tabs: { type: TabType; label: string; button: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Graphics }[] = [];
   private skillsContainer!: Phaser.GameObjects.Container;
   private contentAreaY: number = 0;
+
+  // Content panel bounds (calculated once, used everywhere)
+  private contentPanelX: number = 0;
+  private contentPanelY: number = 0;
+  private contentPanelWidth: number = 0;
+  private contentPanelHeight: number = 0;
 
   constructor(scene: Phaser.Scene) {
     super(scene, GAME_WIDTH / 2, GAME_HEIGHT / 2);
@@ -307,12 +316,16 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   }
 
   private createSkillsContainer(): void {
-    const contentY = this.contentAreaY + 18;
-    const contentHeight = this.PANEL_HEIGHT / 2 - contentY - 15;
+    // Calculate content panel bounds once
+    const tabHeight = 24;
+    this.contentPanelX = -this.PANEL_WIDTH / 2 + 20;
+    this.contentPanelY = this.contentAreaY + tabHeight + 8;
+    this.contentPanelWidth = this.PANEL_WIDTH - 40;
+    this.contentPanelHeight = this.PANEL_HEIGHT / 2 - this.contentPanelY - 15;
 
     // Content panel background - modern inset look
     const panelBg = this.scene.add.graphics();
-    drawContentPanel(panelBg, -this.PANEL_WIDTH / 2 + 20, contentY, this.PANEL_WIDTH - 40, contentHeight);
+    drawContentPanel(panelBg, this.contentPanelX, this.contentPanelY, this.contentPanelWidth, this.contentPanelHeight);
     this.add(panelBg);
 
     this.skillsContainer = this.scene.add.container(0, 0);
@@ -354,7 +367,9 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
 
   private createJobSkillButtons(): void {
     if (this.currentJob === JobId.BEGINNER) {
-      const text = this.scene.add.text(0, this.contentAreaY + 70, 'Advance to a job at level 10!', {
+      // Center the message in the content panel
+      const centerY = this.contentPanelY + this.contentPanelHeight / 2;
+      const text = this.scene.add.text(0, centerY, 'Advance to a job at level 10!', {
         fontFamily: 'Arial',
         fontSize: '12px',
         color: UI_COLORS.textGray
@@ -373,15 +388,21 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     const buttonHeight = 50;
     const spacingX = 6;
     const spacingY = 6;
-    const buttonsPerRow = 8;
-    const contentY = this.contentAreaY + 28;
-    const startX = -this.PANEL_WIDTH / 2 + 30 + buttonWidth / 2;
+    const padding = 10;
+
+    // Calculate how many buttons fit per row based on content panel width
+    const availableWidth = this.contentPanelWidth - padding * 2;
+    const buttonsPerRow = Math.floor((availableWidth + spacingX) / (buttonWidth + spacingX));
+
+    // Position relative to content panel
+    const startX = this.contentPanelX + padding + buttonWidth / 2;
+    const startY = this.contentPanelY + padding + buttonHeight / 2;
 
     skills.forEach((skill, index) => {
       const row = Math.floor(index / buttonsPerRow);
       const col = index % buttonsPerRow;
       const x = startX + col * (buttonWidth + spacingX);
-      const y = contentY + row * (buttonHeight + spacingY);
+      const y = startY + row * (buttonHeight + spacingY);
 
       const available = skill.requiredLevel <= this.currentLevel;
       this.createSkillButton(skill, x, y, buttonWidth, buttonHeight, available);
@@ -394,15 +415,21 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     const buttonHeight = 40;
     const spacingX = 6;
     const spacingY = 6;
-    const buttonsPerRow = 8;
-    const contentY = this.contentAreaY + 28;
-    const startX = -this.PANEL_WIDTH / 2 + 30 + buttonWidth / 2;
+    const padding = 10;
+
+    // Calculate how many buttons fit per row based on content panel width
+    const availableWidth = this.contentPanelWidth - padding * 2;
+    const buttonsPerRow = Math.floor((availableWidth + spacingX) / (buttonWidth + spacingX));
+
+    // Position relative to content panel
+    const startX = this.contentPanelX + padding + buttonWidth / 2;
+    const startY = this.contentPanelY + padding + buttonHeight / 2;
 
     actions.forEach((action, index) => {
       const row = Math.floor(index / buttonsPerRow);
       const col = index % buttonsPerRow;
       const x = startX + col * (buttonWidth + spacingX);
-      const y = contentY + row * (buttonHeight + spacingY);
+      const y = startY + row * (buttonHeight + spacingY);
       this.createActionButton(action, x, y, buttonWidth, buttonHeight);
     });
   }
