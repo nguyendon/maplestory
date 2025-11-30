@@ -508,4 +508,15 @@ export default class UIScene extends Phaser.Scene {
       gameScene.events.off('map:changed', this.handleMapChanged, this);
     }
   }
+
+  // Menu state getters/setters for save/load
+  public isMinimapVisible(): boolean {
+    return this.miniMapContainer?.visible ?? true;
+  }
+
+  public setMinimapVisible(visible: boolean): void {
+    if (this.miniMapContainer) {
+      this.miniMapContainer.setVisible(visible);
+    }
+  }
 }

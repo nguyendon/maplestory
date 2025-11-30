@@ -16,12 +16,31 @@ export interface InventorySaveData {
   mesos: number;
 }
 
+export interface KeyBindingsSaveData {
+  skills: Record<string, string>;  // keyCode -> skillId
+  actions: Record<string, string>; // keyCode -> actionId
+}
+
+export interface MapStateSaveData {
+  mapId: string;
+  playerX: number;
+  playerY: number;
+}
+
+export interface MenuStateSaveData {
+  minimapVisible: boolean;
+  skillBarVisible: boolean;
+}
+
 export interface SaveData {
   version: number;
   timestamp: number;
   character: CharacterStatsData;
   inventory: InventorySaveData;
   equipment: EquipmentData;
+  keyBindings?: KeyBindingsSaveData;
+  mapState?: MapStateSaveData;
+  menuState?: MenuStateSaveData;
 }
 
 // ============================================
