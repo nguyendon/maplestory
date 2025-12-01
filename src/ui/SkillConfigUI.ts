@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { SkillDefinition } from '../skills/SkillData';
 import { SKILLS } from '../skills/SkillData';
 import { JobId } from '../systems/JobData';
+import { UI_COLORS, drawTooltip } from './UITheme';
 
 interface SkillEntry {
   container: Phaser.GameObjects.Container;
@@ -24,6 +25,7 @@ export class SkillConfigUI extends Phaser.GameObjects.Container {
   private skillLevels: Map<string, number> = new Map();
   private availableSkillPoints: number = 0;
   private skillPointsText!: Phaser.GameObjects.Text;
+  private tooltipContainer: Phaser.GameObjects.Container | null = null;
 
   private readonly PANEL_WIDTH = 320;
   private readonly PANEL_HEIGHT = 420;
@@ -243,11 +245,13 @@ export class SkillConfigUI extends Phaser.GameObjects.Container {
       bg.clear();
       bg.fillStyle(0x353560, 0.9);
       bg.fillRoundedRect(-width / 2, -this.SKILL_ROW_HEIGHT / 2 + 5, width, this.SKILL_ROW_HEIGHT - 10, 4);
+      this.showSkillTooltip(skill, y);
     });
     hitArea.on('pointerout', () => {
       bg.clear();
       bg.fillStyle(0x252540, 0.8);
       bg.fillRoundedRect(-width / 2, -this.SKILL_ROW_HEIGHT / 2 + 5, width, this.SKILL_ROW_HEIGHT - 10, 4);
+      this.hideSkillTooltip();
     });
     container.add(hitArea);
 
@@ -318,6 +322,107 @@ export class SkillConfigUI extends Phaser.GameObjects.Container {
     return new Map(this.skillLevels);
   }
 
+  private showSkillTooltip(skill: SkillDefinition, rowY: number): void {
+    this.hideSkillTooltip();
+
+    const tooltipWidth = 200;
+    const tooltipHeight = 120;
+
+    // Position tooltip to the right of the panel
+    const tooltipX = this.PANEL_WIDTH / 2 + 10;
+    const tooltipY = rowY - this.scrollY;
+
+    this.tooltipContainer = this.scene.add.container(tooltipX, tooltipY);
+
+    // Background
+    const bg = this.scene.add.graphics();
+    drawTooltip(bg, 0, -tooltipHeight / 2, tooltipWidth, tooltipHeight);
+    this.tooltipContainer.add(bg);
+
+    // Skill name
+    const nameText = this.scene.add.text(tooltipWidth / 2, -tooltipHeight / 2 + 12, skill.name, {
+      fontFamily: 'Arial',
+      fontSize: '13px',
+      color: UI_COLORS.textGold,
+      fontStyle: 'bold'
+    });
+    nameText.setOrigin(0.5, 0);
+    this.tooltipContainer.add(nameText);
+
+    // Description
+    const descText = this.scene.add.text(10, -tooltipHeight / 2 + 32, skill.description, {
+      fontFamily: 'Arial',
+      fontSize: '10px',
+      color: UI_COLORS.textLight,
+      wordWrap: { width: tooltipWidth - 20 }
+    });
+    this.tooltipContainer.add(descText);
+
+    // Stats
+    const statsY = -tooltipHeight / 2 + tooltipHeight - 38;
+
+    // MP Cost
+    const mpText = this.scene.add.text(10, statsY, `MP: ${skill.mpCost}`, {
+      fontFamily: 'Arial',
+      fontSize: '10px',
+      color: UI_COLORS.textBlue
+    });
+    this.tooltipContainer.add(mpText);
+
+    // Cooldown
+    const cdSec = skill.cooldown / 1000;
+    const cdText = this.scene.add.text(70, statsY, `CD: ${cdSec}s`, {
+      fontFamily: 'Arial',
+      fontSize: '10px',
+      color: UI_COLORS.textGray
+    });
+    this.tooltipContainer.add(cdText);
+
+    // Damage
+    if (skill.damage > 0) {
+      const dmgText = this.scene.add.text(130, statsY, `DMG: ${skill.damage}%`, {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#ff6666'
+      });
+      this.tooltipContainer.add(dmgText);
+    }
+
+    // Type and targets
+    const typeColors: Record<string, string> = {
+      attack: '#ff6666',
+      buff: '#66ff66',
+      mobility: '#66ccff',
+      passive: '#cccccc'
+    };
+    const typeText = this.scene.add.text(10, statsY + 14, skill.type.toUpperCase(), {
+      fontFamily: 'Arial',
+      fontSize: '9px',
+      color: typeColors[skill.type] || '#aaaaaa',
+      fontStyle: 'bold'
+    });
+    this.tooltipContainer.add(typeText);
+
+    if (skill.maxTargets > 1) {
+      const targetsText = this.scene.add.text(tooltipWidth - 10, statsY + 14, `Hits: ${skill.maxTargets}`, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: UI_COLORS.textGray
+      });
+      targetsText.setOrigin(1, 0);
+      this.tooltipContainer.add(targetsText);
+    }
+
+    this.add(this.tooltipContainer);
+  }
+
+  private hideSkillTooltip(): void {
+    if (this.tooltipContainer) {
+      this.tooltipContainer.destroy();
+      this.tooltipContainer = null;
+    }
+  }
+
   open(): void {
     this.isOpen = true;
     this.setVisible(true);
@@ -328,6 +433,7 @@ export class SkillConfigUI extends Phaser.GameObjects.Container {
   close(): void {
     this.isOpen = false;
     this.setVisible(false);
+    this.hideSkillTooltip();
   }
 
   toggle(): void {
