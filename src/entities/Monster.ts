@@ -39,6 +39,13 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   protected invincibilityTimer: number = 0;
   protected isDead: boolean = false;
 
+  // Health bar
+  private healthBarBg!: Phaser.GameObjects.Graphics;
+  private healthBarFill!: Phaser.GameObjects.Graphics;
+  private healthBarWidth: number = 40;
+  private healthBarHeight: number = 5;
+  private healthBarOffsetY: number = -10;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -91,6 +98,9 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
 
     // Create hurtbox
     this.createHurtbox();
+
+    // Create health bar
+    this.createHealthBar();
   }
 
   protected createHurtbox(): void {
@@ -107,6 +117,56 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  private createHealthBar(): void {
+    // Scale health bar based on monster size
+    this.healthBarWidth = Math.max(30, Math.min(60, this.definition.width));
+    this.healthBarOffsetY = -(this.definition.height / 2) - 8;
+
+    // Background (dark)
+    this.healthBarBg = this.scene.add.graphics();
+    this.healthBarBg.setDepth(100);
+
+    // Fill (green/yellow/red based on HP)
+    this.healthBarFill = this.scene.add.graphics();
+    this.healthBarFill.setDepth(101);
+
+    this.updateHealthBar();
+  }
+
+  private updateHealthBar(): void {
+    const barX = this.x - this.healthBarWidth / 2;
+    const barY = this.y + this.healthBarOffsetY;
+    const hpPercent = Math.max(0, this.hp / this.maxHp);
+
+    // Clear and redraw background
+    this.healthBarBg.clear();
+    this.healthBarBg.fillStyle(0x000000, 0.7);
+    this.healthBarBg.fillRoundedRect(barX - 1, barY - 1, this.healthBarWidth + 2, this.healthBarHeight + 2, 2);
+
+    // Clear and redraw fill
+    this.healthBarFill.clear();
+
+    // Color based on HP percentage
+    let fillColor: number;
+    if (hpPercent > 0.6) {
+      fillColor = 0x44ff44; // Green
+    } else if (hpPercent > 0.3) {
+      fillColor = 0xffff44; // Yellow
+    } else {
+      fillColor = 0xff4444; // Red
+    }
+
+    this.healthBarFill.fillStyle(fillColor, 1);
+    const fillWidth = this.healthBarWidth * hpPercent;
+    if (fillWidth > 0) {
+      this.healthBarFill.fillRoundedRect(barX, barY, fillWidth, this.healthBarHeight, 2);
+    }
+
+    // Hide health bar if monster is dead
+    this.healthBarBg.setVisible(!this.isDead);
+    this.healthBarFill.setVisible(!this.isDead);
+  }
+
   public setTarget(target: Phaser.GameObjects.GameObject | null): void {
     this.target = target;
   }
@@ -120,6 +180,9 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
 
     // Update hurtbox position
     this.hurtbox.setPosition(this.x, this.y);
+
+    // Update health bar position
+    this.updateHealthBar();
 
     // Update invincibility
     if (this.isInvincible) {
@@ -354,11 +417,20 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.createHurtbox();
     }
+
+    // Update health bar to show full HP
+    this.updateHealthBar();
   }
 
   destroy(fromScene?: boolean): void {
     if (this.hurtbox) {
       this.hurtbox.destroy();
+    }
+    if (this.healthBarBg) {
+      this.healthBarBg.destroy();
+    }
+    if (this.healthBarFill) {
+      this.healthBarFill.destroy();
     }
     super.destroy(fromScene);
   }
