@@ -22,6 +22,9 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [BootScene, GameScene, UIScene],
-  pixelArt: true,
-  roundPixels: true,
+  // Disable pixelArt mode for crisp UI text and graphics
+  // Sprites will still render fine, just with linear filtering
+  pixelArt: false,
+  roundPixels: false,
+  antialias: true,
 };
