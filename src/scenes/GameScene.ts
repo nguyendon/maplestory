@@ -25,6 +25,7 @@ import type { SkillDefinition } from '../skills/SkillData';
 import { InventoryUI } from '../ui/InventoryUI';
 import { EquipmentUI } from '../ui/EquipmentUI';
 import { WorldMapUI } from '../ui/WorldMapUI';
+import { StatsUI } from '../ui/StatsUI';
 import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
@@ -66,6 +67,7 @@ export class GameScene extends Phaser.Scene {
   private inventoryUI!: InventoryUI;
   private equipmentUI!: EquipmentUI;
   private worldMapUI!: WorldMapUI;
+  private statsUI!: StatsUI;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -220,6 +222,10 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // Create stats UI
+    this.statsUI = new StatsUI(this);
+    this.statsUI.setPlayerStats(this.playerStats);
+
     // Initialize minimap with current map data
     const uiSceneInit = this.scene.get('UIScene') as UIScene;
     if (uiSceneInit) {
@@ -246,6 +252,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('TWO', ACTIONS.MP_POTION);
     initialActionBindings.set('I', ACTIONS.INVENTORY);
     initialActionBindings.set('E', ACTIONS.EQUIPMENT);
+    initialActionBindings.set('T', ACTIONS.STATS);
     initialActionBindings.set('W', ACTIONS.WORLD_MAP);
     initialActionBindings.set('M', ACTIONS.MINIMAP);
     initialActionBindings.set('ESC', ACTIONS.MENU);
@@ -599,6 +606,11 @@ export class GameScene extends Phaser.Scene {
           this.inventoryUI.open();
         } else {
           this.inventoryUI.close();
+        }
+        break;
+      case 'STATS':
+        if (!this.dialogueBox.isOpen && !this.keyboardConfigUI.isOpen) {
+          this.statsUI.toggle();
         }
         break;
       case 'PICKUP':

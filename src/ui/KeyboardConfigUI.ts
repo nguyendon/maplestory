@@ -21,6 +21,7 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   MP_POTION: { id: 'MP_POTION', name: 'MP Pot', color: 0x4ecdc4 },
   INVENTORY: { id: 'INVENTORY', name: 'Inventory', color: 0x8b4513 },
   EQUIPMENT: { id: 'EQUIPMENT', name: 'Equip', color: 0x4a6fa5 },
+  STATS: { id: 'STATS', name: 'Stats', color: 0x9966cc },
   WORLD_MAP: { id: 'WORLD_MAP', name: 'World Map', color: 0x5a8f5a },
   MINIMAP: { id: 'MINIMAP', name: 'Minimap', color: 0x5a7f8a },
   MENU: { id: 'MENU', name: 'Menu', color: 0x6a6a8a },
