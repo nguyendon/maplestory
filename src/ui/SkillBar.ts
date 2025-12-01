@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { SkillDefinition } from '../skills/SkillData';
-import { UI_COLORS, getKeyStyle } from './UITheme';
+import { UI_COLORS, getKeyStyle, drawTooltip } from './UITheme';
 
 export interface SkillSlot {
   skill: SkillDefinition | null;
@@ -14,8 +14,11 @@ export class SkillBar extends Phaser.GameObjects.Container {
   private slotGraphics: Phaser.GameObjects.Graphics[] = [];
   private slotTexts: Phaser.GameObjects.Text[] = [];
   private cooldownOverlays: Phaser.GameObjects.Graphics[] = [];
+  private cooldownTexts: Phaser.GameObjects.Text[] = [];
   private keyLabels: Phaser.GameObjects.Text[] = [];
   private backgroundPanel!: Phaser.GameObjects.Graphics;
+  private tooltipContainer: Phaser.GameObjects.Container | null = null;
+  private lastHoveredSlot: number = -1;
 
   private readonly SLOT_SIZE = 44;
   private readonly SLOT_PADDING = 6;
@@ -23,6 +26,7 @@ export class SkillBar extends Phaser.GameObjects.Container {
   private readonly PANEL_PADDING = 8;
 
   private getCooldownPercent: ((skillId: string) => number) | null = null;
+  private getCooldownRemaining: ((skillId: string) => number) | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
@@ -31,6 +35,54 @@ export class SkillBar extends Phaser.GameObjects.Container {
     this.createSlots();
     scene.add.existing(this);
     this.setDepth(1000);
+
+    // Make the entire skillbar interactive for tooltip detection
+    this.setupContainerInteraction();
+  }
+
+  private setupContainerInteraction(): void {
+    const totalWidth = this.NUM_SLOTS * (this.SLOT_SIZE + this.SLOT_PADDING) - this.SLOT_PADDING + this.PANEL_PADDING * 2;
+    const totalHeight = this.SLOT_SIZE + this.PANEL_PADDING * 2;
+
+    // Set up the container's interactive hitArea
+    this.setSize(totalWidth, totalHeight);
+    this.setInteractive(
+      new Phaser.Geom.Rectangle(-totalWidth / 2, 0, totalWidth, totalHeight),
+      Phaser.Geom.Rectangle.Contains
+    );
+
+    this.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      // Convert pointer position to local coordinates
+      const localX = pointer.x - this.x;
+      const slotIndex = this.getSlotIndexFromLocalX(localX);
+
+      if (slotIndex !== this.lastHoveredSlot) {
+        this.lastHoveredSlot = slotIndex;
+        if (slotIndex >= 0 && slotIndex < this.NUM_SLOTS && this.slots[slotIndex]?.skill) {
+          this.showTooltip(slotIndex);
+        } else {
+          this.hideTooltip();
+        }
+      }
+    });
+
+    this.on('pointerout', () => {
+      this.lastHoveredSlot = -1;
+      this.hideTooltip();
+    });
+  }
+
+  private getSlotIndexFromLocalX(localX: number): number {
+    const totalWidth = this.NUM_SLOTS * (this.SLOT_SIZE + this.SLOT_PADDING) - this.SLOT_PADDING;
+    const startX = -totalWidth / 2;
+
+    for (let i = 0; i < this.NUM_SLOTS; i++) {
+      const slotX = startX + i * (this.SLOT_SIZE + this.SLOT_PADDING);
+      if (localX >= slotX && localX < slotX + this.SLOT_SIZE) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private createBackground(): void {
@@ -93,6 +145,26 @@ export class SkillBar extends Phaser.GameObjects.Container {
       cooldown.setVisible(false);
       this.add(cooldown);
       this.cooldownOverlays.push(cooldown);
+
+      // Cooldown timer text (centered in slot)
+      const cooldownText = this.scene.add.text(
+        slotX + this.SLOT_SIZE / 2,
+        this.PANEL_PADDING + this.SLOT_SIZE / 2,
+        '',
+        {
+          fontFamily: 'Arial',
+          fontSize: '14px',
+          color: '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 3,
+          fontStyle: 'bold'
+        }
+      );
+      cooldownText.setOrigin(0.5);
+      cooldownText.setVisible(false);
+      cooldownText.setDepth(10);
+      this.add(cooldownText);
+      this.cooldownTexts.push(cooldownText);
 
       // Skill name text
       const text = this.scene.add.text(
@@ -229,6 +301,10 @@ export class SkillBar extends Phaser.GameObjects.Container {
     this.getCooldownPercent = callback;
   }
 
+  setCooldownRemainingCallback(callback: (skillId: string) => number): void {
+    this.getCooldownRemaining = callback;
+  }
+
   update(): void {
     if (!this.getCooldownPercent) return;
 
@@ -238,6 +314,7 @@ export class SkillBar extends Phaser.GameObjects.Container {
     for (let i = 0; i < this.NUM_SLOTS; i++) {
       const skill = this.slots[i].skill;
       const overlay = this.cooldownOverlays[i];
+      const cooldownText = this.cooldownTexts[i];
       const slotX = startX + i * (this.SLOT_SIZE + this.SLOT_PADDING);
 
       if (skill) {
@@ -258,7 +335,7 @@ export class SkillBar extends Phaser.GameObjects.Container {
             2
           );
 
-          // Add cooldown text
+          // Border on cooldown overlay
           overlay.lineStyle(1, UI_COLORS.borderGold, 0.5);
           overlay.strokeRoundedRect(
             slotX + 2,
@@ -267,11 +344,21 @@ export class SkillBar extends Phaser.GameObjects.Container {
             height,
             2
           );
+
+          // Show cooldown timer text
+          if (this.getCooldownRemaining) {
+            const remaining = this.getCooldownRemaining(skill.id);
+            const seconds = remaining / 1000;
+            cooldownText.setText(seconds >= 1 ? Math.ceil(seconds).toString() : seconds.toFixed(1));
+            cooldownText.setVisible(true);
+          }
         } else {
           overlay.setVisible(false);
+          cooldownText.setVisible(false);
         }
       } else {
         overlay.setVisible(false);
+        cooldownText.setVisible(false);
       }
     }
   }
@@ -328,5 +415,148 @@ export class SkillBar extends Phaser.GameObjects.Container {
 
   getNumSlots(): number {
     return this.NUM_SLOTS;
+  }
+
+  private showTooltip(slotIndex: number): void {
+    const skill = this.slots[slotIndex]?.skill;
+    if (!skill) return;
+
+    this.hideTooltip();
+
+    const totalWidth = this.NUM_SLOTS * (this.SLOT_SIZE + this.SLOT_PADDING) - this.SLOT_PADDING;
+    const startX = -totalWidth / 2;
+    const slotX = startX + slotIndex * (this.SLOT_SIZE + this.SLOT_PADDING);
+
+    const tooltipWidth = 180;
+    const tooltipHeight = 100;
+    const tooltipX = slotX + this.SLOT_SIZE / 2 - tooltipWidth / 2;
+    const tooltipY = -tooltipHeight - 10;
+
+    this.tooltipContainer = this.scene.add.container(0, 0);
+
+    // Background
+    const bg = this.scene.add.graphics();
+    drawTooltip(bg, tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+    this.tooltipContainer.add(bg);
+
+    // Skill name
+    const nameText = this.scene.add.text(
+      tooltipX + tooltipWidth / 2,
+      tooltipY + 10,
+      skill.name,
+      {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: UI_COLORS.textGold,
+        fontStyle: 'bold'
+      }
+    );
+    nameText.setOrigin(0.5, 0);
+    this.tooltipContainer.add(nameText);
+
+    // Description
+    const descText = this.scene.add.text(
+      tooltipX + 8,
+      tooltipY + 28,
+      skill.description,
+      {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: UI_COLORS.textLight,
+        wordWrap: { width: tooltipWidth - 16 }
+      }
+    );
+    this.tooltipContainer.add(descText);
+
+    // Stats row
+    const statsY = tooltipY + tooltipHeight - 28;
+
+    // MP Cost
+    const mpText = this.scene.add.text(
+      tooltipX + 8,
+      statsY,
+      `MP: ${skill.mpCost}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: UI_COLORS.textBlue
+      }
+    );
+    this.tooltipContainer.add(mpText);
+
+    // Cooldown
+    const cooldownSec = skill.cooldown / 1000;
+    const cdText = this.scene.add.text(
+      tooltipX + 60,
+      statsY,
+      `CD: ${cooldownSec >= 1 ? cooldownSec + 's' : (cooldownSec * 1000) + 'ms'}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: UI_COLORS.textGray
+      }
+    );
+    this.tooltipContainer.add(cdText);
+
+    // Damage (for attack skills)
+    if (skill.damage > 0) {
+      const dmgText = this.scene.add.text(
+        tooltipX + tooltipWidth - 8,
+        statsY,
+        `${skill.damage}%`,
+        {
+          fontFamily: 'Arial',
+          fontSize: '9px',
+          color: '#ff6666'
+        }
+      );
+      dmgText.setOrigin(1, 0);
+      this.tooltipContainer.add(dmgText);
+    }
+
+    // Type indicator
+    const typeColors: Record<string, string> = {
+      attack: '#ff6666',
+      buff: '#66ff66',
+      mobility: '#66ccff',
+      passive: '#cccccc'
+    };
+    const typeText = this.scene.add.text(
+      tooltipX + 8,
+      statsY + 12,
+      skill.type.toUpperCase(),
+      {
+        fontFamily: 'Arial',
+        fontSize: '8px',
+        color: typeColors[skill.type] || '#aaaaaa',
+        fontStyle: 'bold'
+      }
+    );
+    this.tooltipContainer.add(typeText);
+
+    // Max targets for AoE
+    if (skill.maxTargets > 1) {
+      const targetsText = this.scene.add.text(
+        tooltipX + tooltipWidth - 8,
+        statsY + 12,
+        `Hits: ${skill.maxTargets}`,
+        {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: UI_COLORS.textGray
+        }
+      );
+      targetsText.setOrigin(1, 0);
+      this.tooltipContainer.add(targetsText);
+    }
+
+    this.add(this.tooltipContainer);
+  }
+
+  private hideTooltip(): void {
+    if (this.tooltipContainer) {
+      this.tooltipContainer.destroy();
+      this.tooltipContainer = null;
+    }
   }
 }
