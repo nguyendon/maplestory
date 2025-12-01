@@ -252,7 +252,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('TWO', ACTIONS.MP_POTION);
     initialActionBindings.set('I', ACTIONS.INVENTORY);
     initialActionBindings.set('E', ACTIONS.EQUIPMENT);
-    initialActionBindings.set('T', ACTIONS.STATS);
+    initialActionBindings.set('S', ACTIONS.STATS);
     initialActionBindings.set('W', ACTIONS.WORLD_MAP);
     initialActionBindings.set('M', ACTIONS.MINIMAP);
     initialActionBindings.set('ESC', ACTIONS.MENU);
