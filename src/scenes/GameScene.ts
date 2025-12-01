@@ -85,6 +85,10 @@ export class GameScene extends Phaser.Scene {
   // Background objects (for cleanup when changing maps)
   private backgroundObjects: Phaser.GameObjects.GameObject[] = [];
 
+  // Transition overlay for smooth map changes
+  private transitionOverlay!: Phaser.GameObjects.Graphics;
+  private isTransitioning: boolean = false;
+
   constructor() {
     super({ key: SCENES.GAME });
   }
@@ -212,7 +216,7 @@ export class GameScene extends Phaser.Scene {
     this.worldMapUI.setOnTeleport((mapId: string) => {
       const targetMap = MAPS[mapId];
       if (targetMap) {
-        this.loadMap(mapId, targetMap.playerSpawn.x, targetMap.playerSpawn.y);
+        this.transitionToMap(mapId, targetMap.playerSpawn.x, targetMap.playerSpawn.y);
       }
     });
 
@@ -277,6 +281,9 @@ export class GameScene extends Phaser.Scene {
 
     // Launch UI Scene
     this.scene.launch('UIScene');
+
+    // Create transition overlay for smooth map changes (must be on top)
+    this.createTransitionOverlay();
 
     // Make sure GameScene's input is processed (set to top priority for interactive objects)
     this.input.setTopOnly(false);
@@ -1194,6 +1201,55 @@ export class GameScene extends Phaser.Scene {
     }
 
     console.log(`Loaded map: ${newMap.name} (${newMap.backgroundTheme}${newMap.isSafeZone ? ', safe zone' : ''})`);
+  }
+
+  /**
+   * Create the transition overlay for smooth map changes
+   */
+  private createTransitionOverlay(): void {
+    this.transitionOverlay = this.add.graphics();
+    this.transitionOverlay.setDepth(10000); // Above everything
+    this.transitionOverlay.setScrollFactor(0); // Fixed to camera
+    this.transitionOverlay.setAlpha(0);
+    this.transitionOverlay.fillStyle(0x000000, 1);
+    this.transitionOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
+
+  /**
+   * Transition to a new map with fade effect
+   */
+  private transitionToMap(mapId: string, spawnX: number, spawnY: number): void {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+
+    // Disable player input during transition
+    this.player.setVelocity(0, 0);
+
+    // Fade out
+    this.tweens.add({
+      targets: this.transitionOverlay,
+      alpha: 1,
+      duration: 300,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        // Load the new map while screen is black
+        this.loadMap(mapId, spawnX, spawnY);
+
+        // Short pause at full black
+        this.time.delayedCall(150, () => {
+          // Fade in
+          this.tweens.add({
+            targets: this.transitionOverlay,
+            alpha: 0,
+            duration: 400,
+            ease: 'Sine.easeOut',
+            onComplete: () => {
+              this.isTransitioning = false;
+            }
+          });
+        });
+      }
+    });
   }
 
   private setupInteractionKeys(): void {
