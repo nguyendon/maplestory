@@ -29,6 +29,19 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
 
   private equipSlots: EquipSlotUI[] = [];
   private tooltip!: Phaser.GameObjects.Container;
+  private characterPreview!: Phaser.GameObjects.Container;
+  private charParts: {
+    body: Phaser.GameObjects.Graphics;
+    head: Phaser.GameObjects.Graphics;
+    hat?: Phaser.GameObjects.Graphics;
+    top?: Phaser.GameObjects.Graphics;
+    bottom?: Phaser.GameObjects.Graphics;
+    weapon?: Phaser.GameObjects.Graphics;
+    cape?: Phaser.GameObjects.Graphics;
+    gloves?: Phaser.GameObjects.Graphics;
+    shoes?: Phaser.GameObjects.Graphics;
+    accessory?: Phaser.GameObjects.Graphics;
+  } = {} as any;
 
   private equipment: Equipment | null = null;
   private onUnequip: ((slot: EquipSlot) => void) | null = null;
@@ -85,29 +98,8 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
     silhouetteArea.strokeRoundedRect(-70, -this.PANEL_HEIGHT / 2 + 40, 140, 165, 6);
     this.add(silhouetteArea);
 
-    // Draw improved character outline
-    const charOutline = this.scene.add.graphics();
-    charOutline.lineStyle(2, UI_COLORS.borderHighlight, 0.4);
-
-    // Head (circle)
-    charOutline.strokeCircle(0, -this.PANEL_HEIGHT / 2 + 80, 18);
-    // Neck
-    charOutline.strokeRect(-5, -this.PANEL_HEIGHT / 2 + 98, 10, 8);
-    // Body (torso)
-    charOutline.beginPath();
-    charOutline.moveTo(-18, -this.PANEL_HEIGHT / 2 + 106);
-    charOutline.lineTo(-22, -this.PANEL_HEIGHT / 2 + 150);
-    charOutline.lineTo(22, -this.PANEL_HEIGHT / 2 + 150);
-    charOutline.lineTo(18, -this.PANEL_HEIGHT / 2 + 106);
-    charOutline.closePath();
-    charOutline.strokePath();
-    // Arms
-    charOutline.strokeRect(-38, -this.PANEL_HEIGHT / 2 + 108, 14, 35);
-    charOutline.strokeRect(24, -this.PANEL_HEIGHT / 2 + 108, 14, 35);
-    // Legs
-    charOutline.strokeRect(-16, -this.PANEL_HEIGHT / 2 + 150, 12, 42);
-    charOutline.strokeRect(4, -this.PANEL_HEIGHT / 2 + 150, 12, 42);
-    this.add(charOutline);
+    // Create character preview container
+    this.createCharacterPreview();
 
     // Equipment slot positions
     const slotDefs: { slot: EquipSlot; label: string; x: number; y: number }[] = [
@@ -176,6 +168,264 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
     this.add(container);
 
     return { slot, label, x, y, container };
+  }
+
+  private createCharacterPreview(): void {
+    const baseY = -this.PANEL_HEIGHT / 2 + 125;
+    this.characterPreview = this.scene.add.container(0, baseY);
+    this.add(this.characterPreview);
+
+    // Cape (behind character)
+    const cape = this.scene.add.graphics();
+    cape.setName('cape');
+    this.characterPreview.add(cape);
+    this.charParts.cape = cape;
+
+    // Legs/bottom
+    const bottom = this.scene.add.graphics();
+    bottom.setName('bottom');
+    this.characterPreview.add(bottom);
+    this.charParts.bottom = bottom;
+
+    // Shoes
+    const shoes = this.scene.add.graphics();
+    shoes.setName('shoes');
+    this.characterPreview.add(shoes);
+    this.charParts.shoes = shoes;
+
+    // Body base
+    const body = this.scene.add.graphics();
+    body.setName('body');
+    this.characterPreview.add(body);
+    this.charParts.body = body;
+
+    // Top/armor
+    const top = this.scene.add.graphics();
+    top.setName('top');
+    this.characterPreview.add(top);
+    this.charParts.top = top;
+
+    // Gloves
+    const gloves = this.scene.add.graphics();
+    gloves.setName('gloves');
+    this.characterPreview.add(gloves);
+    this.charParts.gloves = gloves;
+
+    // Weapon
+    const weapon = this.scene.add.graphics();
+    weapon.setName('weapon');
+    this.characterPreview.add(weapon);
+    this.charParts.weapon = weapon;
+
+    // Head
+    const head = this.scene.add.graphics();
+    head.setName('head');
+    this.characterPreview.add(head);
+    this.charParts.head = head;
+
+    // Hat
+    const hat = this.scene.add.graphics();
+    hat.setName('hat');
+    this.characterPreview.add(hat);
+    this.charParts.hat = hat;
+
+    // Accessory
+    const accessory = this.scene.add.graphics();
+    accessory.setName('accessory');
+    this.characterPreview.add(accessory);
+    this.charParts.accessory = accessory;
+
+    // Initial draw
+    this.drawCharacterPreview();
+
+    // Add idle animation
+    this.scene.tweens.add({
+      targets: this.characterPreview,
+      y: baseY - 3,
+      duration: 1200,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1
+    });
+  }
+
+  private drawCharacterPreview(): void {
+    // Draw base body (skin tone)
+    const body = this.charParts.body;
+    body.clear();
+    body.fillStyle(0xffe0bd, 1); // Skin color
+
+    // Torso
+    body.fillRoundedRect(-12, -15, 24, 30, 3);
+    // Neck
+    body.fillRect(-4, -22, 8, 8);
+    // Arms (base)
+    body.fillRoundedRect(-22, -12, 12, 25, 2);
+    body.fillRoundedRect(10, -12, 12, 25, 2);
+    // Legs (base)
+    body.fillRoundedRect(-10, 15, 8, 28, 2);
+    body.fillRoundedRect(2, 15, 8, 28, 2);
+
+    // Draw head
+    const head = this.charParts.head;
+    head.clear();
+    head.fillStyle(0xffe0bd, 1);
+    head.fillCircle(0, -35, 16);
+    // Face features
+    head.fillStyle(0x333333, 1);
+    head.fillCircle(-5, -37, 2); // Left eye
+    head.fillCircle(5, -37, 2);  // Right eye
+    head.fillStyle(0xffb6a3, 1);
+    head.fillCircle(0, -32, 1);  // Nose
+    // Hair (default)
+    head.fillStyle(0x4a3728, 1);
+    head.fillRoundedRect(-14, -50, 28, 12, { tl: 8, tr: 8, bl: 0, br: 0 });
+    head.fillRect(-14, -42, 4, 10);
+    head.fillRect(10, -42, 4, 10);
+
+    // Draw equipped items if available
+    this.updateCharacterEquipment();
+  }
+
+  private updateCharacterEquipment(): void {
+    if (!this.equipment) return;
+
+    // Hat
+    const hatItem = this.equipment.getSlot(EquipSlot.HAT);
+    const hat = this.charParts.hat!;
+    hat.clear();
+    if (hatItem) {
+      hat.fillStyle(0x4455aa, 1);
+      hat.fillRoundedRect(-16, -58, 32, 14, { tl: 6, tr: 6, bl: 2, br: 2 });
+      hat.fillStyle(0x3344aa, 1);
+      hat.fillRect(-18, -46, 36, 4);
+      // Hat decoration
+      hat.fillStyle(0xffd700, 1);
+      hat.fillCircle(0, -52, 3);
+    }
+
+    // Top/Armor
+    const topItem = this.equipment.getSlot(EquipSlot.TOP);
+    const top = this.charParts.top!;
+    top.clear();
+    if (topItem) {
+      top.fillStyle(0x3366aa, 1);
+      top.fillRoundedRect(-14, -16, 28, 32, 4);
+      // Armor details
+      top.fillStyle(0x2255aa, 1);
+      top.fillRect(-14, -5, 28, 3);
+      top.fillStyle(0x4477cc, 1);
+      top.fillRect(-8, -14, 16, 8);
+      // Sleeves
+      top.fillStyle(0x3366aa, 1);
+      top.fillRoundedRect(-24, -14, 14, 20, 2);
+      top.fillRoundedRect(10, -14, 14, 20, 2);
+    }
+
+    // Bottom/Pants
+    const bottomItem = this.equipment.getSlot(EquipSlot.BOTTOM);
+    const bottom = this.charParts.bottom!;
+    bottom.clear();
+    if (bottomItem) {
+      bottom.fillStyle(0x2244aa, 1);
+      bottom.fillRect(-11, 14, 9, 30);
+      bottom.fillRect(2, 14, 9, 30);
+      bottom.fillRect(-11, 14, 22, 6);
+      // Belt
+      bottom.fillStyle(0x8b4513, 1);
+      bottom.fillRect(-12, 14, 24, 4);
+      bottom.fillStyle(0xffd700, 1);
+      bottom.fillRect(-2, 14, 4, 4);
+    }
+
+    // Shoes
+    const shoesItem = this.equipment.getSlot(EquipSlot.SHOES);
+    const shoes = this.charParts.shoes!;
+    shoes.clear();
+    if (shoesItem) {
+      shoes.fillStyle(0x8b4513, 1);
+      shoes.fillRoundedRect(-12, 40, 10, 6, 2);
+      shoes.fillRoundedRect(2, 40, 10, 6, 2);
+      // Shoe details
+      shoes.fillStyle(0x6b3503, 1);
+      shoes.fillRect(-10, 43, 6, 2);
+      shoes.fillRect(4, 43, 6, 2);
+    }
+
+    // Gloves
+    const glovesItem = this.equipment.getSlot(EquipSlot.GLOVES);
+    const gloves = this.charParts.gloves!;
+    gloves.clear();
+    if (glovesItem) {
+      gloves.fillStyle(0x666666, 1);
+      gloves.fillRoundedRect(-24, 8, 14, 8, 2);
+      gloves.fillRoundedRect(10, 8, 14, 8, 2);
+      // Glove cuffs
+      gloves.fillStyle(0x888888, 1);
+      gloves.fillRect(-22, 6, 10, 3);
+      gloves.fillRect(12, 6, 10, 3);
+    }
+
+    // Cape
+    const capeItem = this.equipment.getSlot(EquipSlot.CAPE);
+    const cape = this.charParts.cape!;
+    cape.clear();
+    if (capeItem) {
+      cape.fillStyle(0x882222, 0.9);
+      cape.beginPath();
+      cape.moveTo(-12, -16);
+      cape.lineTo(-20, 40);
+      cape.lineTo(20, 40);
+      cape.lineTo(12, -16);
+      cape.closePath();
+      cape.fillPath();
+      // Cape clasp
+      cape.fillStyle(0xffd700, 1);
+      cape.fillCircle(-10, -14, 3);
+      cape.fillCircle(10, -14, 3);
+      // Cape inner
+      cape.fillStyle(0xcc3333, 0.6);
+      cape.fillRect(-15, -10, 30, 45);
+    }
+
+    // Weapon
+    const weaponItem = this.equipment.getSlot(EquipSlot.WEAPON);
+    const weapon = this.charParts.weapon!;
+    weapon.clear();
+    if (weaponItem) {
+      // Sword
+      weapon.fillStyle(0xcccccc, 1);
+      weapon.fillRect(-35, -25, 6, 35);
+      weapon.fillStyle(0xaaaaaa, 1);
+      weapon.fillRect(-35, -25, 2, 35);
+      // Sword tip
+      weapon.beginPath();
+      weapon.moveTo(-35, -25);
+      weapon.lineTo(-32, -32);
+      weapon.lineTo(-29, -25);
+      weapon.closePath();
+      weapon.fillStyle(0xcccccc, 1);
+      weapon.fillPath();
+      // Handle
+      weapon.fillStyle(0x8b4513, 1);
+      weapon.fillRect(-36, 8, 8, 14);
+      // Guard
+      weapon.fillStyle(0xffd700, 1);
+      weapon.fillRect(-40, 6, 16, 4);
+    }
+
+    // Accessory
+    const accessoryItem = this.equipment.getSlot(EquipSlot.ACCESSORY);
+    const accessory = this.charParts.accessory!;
+    accessory.clear();
+    if (accessoryItem) {
+      // Pendant/necklace
+      accessory.fillStyle(0xffd700, 0.8);
+      accessory.lineStyle(2, 0xffd700, 1);
+      accessory.strokeCircle(0, -18, 5);
+      accessory.fillStyle(0x00bfff, 1);
+      accessory.fillCircle(0, -18, 3);
+    }
   }
 
   private createStatsDisplay(): void {
@@ -319,6 +569,9 @@ export class EquipmentUI extends Phaser.GameObjects.Container {
         this.drawEquipIcon(icon, item, slotUI.slot);
       }
     });
+
+    // Update character preview
+    this.updateCharacterEquipment();
 
     // Update stats display
     this.updateStatsDisplay();
