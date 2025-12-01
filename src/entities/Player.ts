@@ -14,7 +14,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private attackKey!: Phaser.Input.Keyboard.Key;
   private jumpKey!: Phaser.Input.Keyboard.Key;
   private stateMachine: StateMachine;
-  private currentState: PlayerState = 'IDLE';
+  private _currentState: PlayerState = 'IDLE';
 
   // Jump mechanics
   private lastGroundedTime: number = 0;
@@ -108,7 +108,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // If already attacking, try to queue next combo
-    if (this.currentState === 'ATTACK') {
+    if (this._currentState === 'ATTACK') {
       if (this.canQueueCombo && !this.comboQueued) {
         this.comboQueued = true;
       }
@@ -129,7 +129,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.currentAttackData = PLAYER_BASIC_COMBO[this.currentComboIndex];
     }
 
-    this.currentState = 'ATTACK';
+    this._currentState = 'ATTACK';
     this.attackPhase = 'startup';
     this.attackFrameTimer = 0;
     this.canQueueCombo = false;
@@ -148,7 +148,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private updateAttackFrames(delta: number): void {
-    if (this.currentState !== 'ATTACK' || !this.currentAttackData) {
+    if (this._currentState !== 'ATTACK' || !this.currentAttackData) {
       return;
     }
 
@@ -203,7 +203,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.currentComboIndex++;
       this.startAttack();
     } else {
-      this.currentState = 'IDLE';
+      this._currentState = 'IDLE';
       this.attackPhase = null;
       this.currentAttackData = null;
       this.activeHitbox = null;
@@ -224,7 +224,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   public isAttacking(): boolean {
-    return this.currentState === 'ATTACK';
+    return this._currentState === 'ATTACK';
   }
 
   public getAttackData(): AttackData | null {
@@ -270,11 +270,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   public isClimbing(): boolean {
-    return this.currentState.startsWith('CLIMB');
+    return this._currentState.startsWith('CLIMB');
   }
 
   public getCurrentState(): PlayerState {
-    return this.currentState;
+    return this._currentState;
+  }
+
+  public get currentState(): PlayerState {
+    return this._currentState;
+  }
+
+  public get facingRight(): boolean {
+    return !this.flipX;
   }
 
   // === STATE MACHINE SETUP ===
@@ -286,7 +294,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'IDLE',
         onEnter: () => {
-          self.currentState = 'IDLE';
+          self._currentState = 'IDLE';
           const body = self.body as Phaser.Physics.Arcade.Body;
           body.setVelocityX(0);
         },
@@ -300,7 +308,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'WALK',
         onEnter: () => {
-          self.currentState = 'WALK';
+          self._currentState = 'WALK';
         },
         onUpdate: () => {
           if (self.tryGrabLadder()) return;
@@ -320,7 +328,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'JUMP',
         onEnter: () => {
-          self.currentState = 'JUMP';
+          self._currentState = 'JUMP';
         },
         onUpdate: () => {
           self.handleHorizontalMovement(false);
@@ -334,7 +342,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'FALL',
         onEnter: () => {
-          self.currentState = 'FALL';
+          self._currentState = 'FALL';
         },
         onUpdate: () => {
           if (self.tryGrabLadder()) return;
@@ -354,7 +362,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'CLIMB_IDLE',
         onEnter: () => {
-          self.currentState = 'CLIMB_IDLE';
+          self._currentState = 'CLIMB_IDLE';
           const body = self.body as Phaser.Physics.Arcade.Body;
           body.setVelocity(0, 0);
         },
@@ -392,7 +400,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'CLIMB_UP',
         onEnter: () => {
-          self.currentState = 'CLIMB_UP';
+          self._currentState = 'CLIMB_UP';
         },
         onUpdate: () => {
           if (!self.currentLadder) {
@@ -429,7 +437,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .addState({
         name: 'CLIMB_DOWN',
         onEnter: () => {
-          self.currentState = 'CLIMB_DOWN';
+          self._currentState = 'CLIMB_DOWN';
         },
         onUpdate: () => {
           if (!self.currentLadder) {
@@ -599,7 +607,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private updateAnimation(_onGround: boolean): void {
-    const animKey = `player-${this.currentState.toLowerCase().replace('_', '-')}`;
+    const animKey = `player-${this._currentState.toLowerCase().replace('_', '-')}`;
 
     // Only play if animation exists and isn't already playing
     if (this.anims.exists(animKey)) {
@@ -639,7 +647,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.currentLadder = null;
       // Reset to idle state if we were climbing
       if (this.isClimbing()) {
-        this.currentState = 'IDLE';
+        this._currentState = 'IDLE';
         this.stateMachine.setState('IDLE');
       }
     }

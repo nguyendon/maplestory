@@ -34,6 +34,9 @@ import type UIScene from './UIScene';
 import { getDefaultMap, getMap, MAPS, type MapDefinition, type BackgroundTheme } from '../config/MapData';
 import { JobId, getJob } from '../systems/JobData';
 import { getSkillsForJobAndLevel } from '../skills/SkillData';
+import { networkManager } from '../network/NetworkManager';
+import type { NetworkPlayer } from '../network/NetworkManager';
+import { RemotePlayer } from '../entities/RemotePlayer';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -90,6 +93,12 @@ export class GameScene extends Phaser.Scene {
   // Transition overlay for smooth map changes
   private transitionOverlay!: Phaser.GameObjects.Graphics;
   private isTransitioning: boolean = false;
+
+  // Multiplayer
+  private remotePlayers: Map<string, RemotePlayer> = new Map();
+  private isMultiplayer: boolean = false;
+  private lastNetworkUpdate: number = 0;
+  private networkUpdateInterval: number = 50; // 20 times per second
 
   constructor() {
     super({ key: SCENES.GAME });
@@ -310,6 +319,157 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(100, () => {
       this.emitPlayerStats();
     });
+
+    // Setup multiplayer
+    this.setupMultiplayer();
+  }
+
+  /**
+   * Setup multiplayer connection and event handlers
+   */
+  private setupMultiplayer(): void {
+    // Set up network event handlers
+    networkManager.on('connected', () => {
+      this.isMultiplayer = true;
+      console.log('Connected to multiplayer server');
+      this.showNotification('Connected to server!');
+
+      // Send initial stats
+      const jobDef = this.playerStats.getJobDefinition();
+      networkManager.sendStatsUpdate(
+        this.playerStats.level,
+        this.playerStats.getMaxHP(),
+        jobDef.name
+      );
+    });
+
+    networkManager.on('disconnected', () => {
+      this.isMultiplayer = false;
+      console.log('Disconnected from multiplayer server');
+      this.showNotification('Disconnected from server');
+
+      // Clean up remote players
+      this.remotePlayers.forEach(rp => rp.destroy());
+      this.remotePlayers.clear();
+    });
+
+    networkManager.on('connectionFailed', (error: Error) => {
+      console.log('Failed to connect to server:', error);
+      // Game can still be played offline
+    });
+
+    networkManager.on('playerJoined', (player: NetworkPlayer) => {
+      if (player.mapId === this.currentMap.id) {
+        this.addRemotePlayer(player);
+      }
+    });
+
+    networkManager.on('playerUpdated', (player: NetworkPlayer) => {
+      const remotePlayer = this.remotePlayers.get(player.id);
+      if (remotePlayer) {
+        if (player.mapId === this.currentMap.id) {
+          remotePlayer.updateFromNetwork(player);
+        } else {
+          // Player changed maps, remove them
+          remotePlayer.destroy();
+          this.remotePlayers.delete(player.id);
+        }
+      } else if (player.mapId === this.currentMap.id) {
+        // Player is on our map now, add them
+        this.addRemotePlayer(player);
+      }
+    });
+
+    networkManager.on('playerLeft', (player: NetworkPlayer) => {
+      const remotePlayer = this.remotePlayers.get(player.id);
+      if (remotePlayer) {
+        remotePlayer.destroy();
+        this.remotePlayers.delete(player.id);
+      }
+    });
+
+    networkManager.on('playerAttack', (data: { playerId: string; skillId: string; x: number; y: number; facingRight: boolean }) => {
+      const remotePlayer = this.remotePlayers.get(data.playerId);
+      if (remotePlayer) {
+        remotePlayer.showAttack(data.skillId);
+      }
+    });
+
+    networkManager.on('playerJoinedNotification', (data: { playerName: string }) => {
+      this.showNotification(`${data.playerName} joined the game`);
+    });
+
+    networkManager.on('playerLeftNotification', (data: { playerName: string }) => {
+      this.showNotification(`${data.playerName} left the game`);
+    });
+
+    networkManager.on('chat', (message: { playerName: string; message: string }) => {
+      this.showChatMessage(message.playerName, message.message);
+    });
+
+    // Try to connect to server
+    const playerName = `Player${Math.floor(Math.random() * 9999)}`;
+    networkManager.connect(playerName, this.currentMap.id);
+  }
+
+  private addRemotePlayer(data: NetworkPlayer): void {
+    if (this.remotePlayers.has(data.id)) return;
+
+    const remotePlayer = new RemotePlayer(this, data);
+    this.remotePlayers.set(data.id, remotePlayer);
+    console.log(`Added remote player: ${data.name}`);
+  }
+
+  private showNotification(message: string): void {
+    const text = this.add.text(GAME_WIDTH / 2, 100, message, {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    text.setOrigin(0.5);
+    text.setScrollFactor(0);
+    text.setDepth(9000);
+
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      y: 80,
+      duration: 2000,
+      delay: 1000,
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  private showChatMessage(playerName: string, message: string): void {
+    // For now, just show as notification
+    // Could implement a proper chat UI later
+    this.showNotification(`${playerName}: ${message}`);
+  }
+
+  /**
+   * Send local player state to server
+   */
+  private sendNetworkUpdate(): void {
+    if (!this.isMultiplayer || !networkManager.isConnected) return;
+
+    const now = Date.now();
+    if (now - this.lastNetworkUpdate < this.networkUpdateInterval) return;
+    this.lastNetworkUpdate = now;
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    networkManager.sendPosition(
+      this.player.x,
+      this.player.y,
+      body.velocity.x,
+      body.velocity.y,
+      this.player.currentState,
+      this.player.facingRight,
+      this.player.anims.currentAnim?.key?.replace('player-', '') || 'idle',
+      this.player.isAttacking(),
+      ''
+    );
   }
 
   private setupStatsEvents(): void {
@@ -948,6 +1108,14 @@ export class GameScene extends Phaser.Scene {
     if (time % 100 < delta) {
       this.updateMinimap();
     }
+
+    // Update remote players
+    this.remotePlayers.forEach(rp => {
+      rp.update(time, delta);
+    });
+
+    // Send network update
+    this.sendNetworkUpdate();
   }
 
   private updateMinimap(): void {
@@ -1246,6 +1414,15 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => {
         // Load the new map while screen is black
         this.loadMap(mapId, spawnX, spawnY);
+
+        // Send map change to server
+        if (this.isMultiplayer) {
+          networkManager.sendMapChange(mapId, spawnX, spawnY);
+
+          // Clear remote players from old map
+          this.remotePlayers.forEach(rp => rp.destroy());
+          this.remotePlayers.clear();
+        }
 
         // Short pause at full black
         this.time.delayedCall(150, () => {
