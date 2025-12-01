@@ -37,6 +37,9 @@ export class WorldMapUI extends Phaser.GameObjects.Container {
 
   public isOpen: boolean = false;
 
+  // Teleport callback
+  private onTeleport: ((mapId: string) => void) | null = null;
+
   constructor(scene: Phaser.Scene) {
     super(scene, GAME_WIDTH / 2, GAME_HEIGHT / 2);
 
@@ -199,6 +202,14 @@ export class WorldMapUI extends Phaser.GameObjects.Container {
     hitArea.on('pointerout', () => {
       this.drawNodeBackground(bg, map, false);
       this.hideMapTooltip();
+    });
+
+    // Click to teleport
+    hitArea.on('pointerdown', () => {
+      if (mapId !== this.currentMapId && this.onTeleport) {
+        this.onTeleport(mapId);
+        this.close();
+      }
     });
 
     this.add(container);
@@ -407,5 +418,9 @@ export class WorldMapUI extends Phaser.GameObjects.Container {
     } else {
       this.open();
     }
+  }
+
+  setOnTeleport(callback: (mapId: string) => void): void {
+    this.onTeleport = callback;
   }
 }
