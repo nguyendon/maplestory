@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
+import type { MapDefinition } from '../config/MapData';
 
 interface StatusBar {
   container: Phaser.GameObjects.Container;
@@ -20,6 +21,24 @@ export default class UIScene extends Phaser.Scene {
   private statusFrame!: Phaser.GameObjects.Graphics;
   private miniMapContainer!: Phaser.GameObjects.Container;
   private mapTitleText!: Phaser.GameObjects.Text;
+
+  // Minimap elements
+  private minimapContent!: Phaser.GameObjects.Graphics;
+  private minimapPlayerDot!: Phaser.GameObjects.Graphics;
+  private minimapMonsterDots!: Phaser.GameObjects.Graphics;
+  private minimapNpcDots!: Phaser.GameObjects.Graphics;
+  private minimapPortalDots!: Phaser.GameObjects.Graphics;
+  private currentMapData: MapDefinition | null = null;
+
+  // Minimap dimensions and position
+  private readonly MINIMAP_W = 150;
+  private readonly MINIMAP_H = 100;
+  private readonly MINIMAP_X = GAME_WIDTH - 160;
+  private readonly MINIMAP_Y = 10;
+  private readonly MINIMAP_CONTENT_X = GAME_WIDTH - 156;
+  private readonly MINIMAP_CONTENT_Y = 30;
+  private readonly MINIMAP_CONTENT_W = 142;
+  private readonly MINIMAP_CONTENT_H = 76;
 
   private readonly BAR_WIDTH = 160;
   private readonly BAR_HEIGHT = 18;
@@ -269,11 +288,6 @@ export default class UIScene extends Phaser.Scene {
   }
 
   private createMiniMapFrame(): void {
-    const mapW = 150;
-    const mapH = 100;
-    const mapX = GAME_WIDTH - mapW - 10;
-    const mapY = 10;
-
     // Create container for all minimap elements
     this.miniMapContainer = this.add.container(0, 0);
 
@@ -281,28 +295,28 @@ export default class UIScene extends Phaser.Scene {
 
     // Shadow
     frame.fillStyle(0x000000, 0.4);
-    frame.fillRoundedRect(mapX + 2, mapY + 2, mapW, mapH, 6);
+    frame.fillRoundedRect(this.MINIMAP_X + 2, this.MINIMAP_Y + 2, this.MINIMAP_W, this.MINIMAP_H, 6);
 
     // Background
     frame.fillStyle(0x1a1a2e, 0.85);
-    frame.fillRoundedRect(mapX, mapY, mapW, mapH, 6);
+    frame.fillRoundedRect(this.MINIMAP_X, this.MINIMAP_Y, this.MINIMAP_W, this.MINIMAP_H, 6);
 
     // Border
     frame.lineStyle(2, 0x4a4a6a, 1);
-    frame.strokeRoundedRect(mapX, mapY, mapW, mapH, 6);
+    frame.strokeRoundedRect(this.MINIMAP_X, this.MINIMAP_Y, this.MINIMAP_W, this.MINIMAP_H, 6);
 
-    // Mini-map "content" placeholder
+    // Content area background
     frame.fillStyle(0x2d3436, 0.6);
-    frame.fillRoundedRect(mapX + 4, mapY + 20, mapW - 8, mapH - 24, 4);
+    frame.fillRoundedRect(this.MINIMAP_CONTENT_X, this.MINIMAP_CONTENT_Y, this.MINIMAP_CONTENT_W, this.MINIMAP_CONTENT_H, 4);
 
     // Title bar
     frame.fillStyle(0x0f0f1a, 0.9);
-    frame.fillRoundedRect(mapX + 2, mapY + 2, mapW - 4, 16, { tl: 4, tr: 4, bl: 0, br: 0 });
+    frame.fillRoundedRect(this.MINIMAP_X + 2, this.MINIMAP_Y + 2, this.MINIMAP_W - 4, 16, { tl: 4, tr: 4, bl: 0, br: 0 });
 
     this.miniMapContainer.add(frame);
 
     // Map title
-    this.mapTitleText = this.add.text(mapX + mapW / 2, mapY + 10, 'Henesys Hunting Ground', {
+    this.mapTitleText = this.add.text(this.MINIMAP_X + this.MINIMAP_W / 2, this.MINIMAP_Y + 10, 'Loading...', {
       fontFamily: 'Arial',
       fontSize: '10px',
       color: '#ffffff',
@@ -311,20 +325,158 @@ export default class UIScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.miniMapContainer.add(this.mapTitleText);
 
-    // Player dot on mini-map
-    const playerDot = this.add.graphics();
-    playerDot.fillStyle(0x00ff00, 1);
-    playerDot.fillCircle(mapX + mapW / 2, mapY + mapH / 2 + 10, 3);
-    this.miniMapContainer.add(playerDot);
+    // Map content (platforms)
+    this.minimapContent = this.add.graphics();
+    this.miniMapContainer.add(this.minimapContent);
+
+    // Portal markers (drawn below NPCs and monsters)
+    this.minimapPortalDots = this.add.graphics();
+    this.miniMapContainer.add(this.minimapPortalDots);
+
+    // NPC markers
+    this.minimapNpcDots = this.add.graphics();
+    this.miniMapContainer.add(this.minimapNpcDots);
+
+    // Monster markers
+    this.minimapMonsterDots = this.add.graphics();
+    this.miniMapContainer.add(this.minimapMonsterDots);
+
+    // Player dot on mini-map (drawn last, on top)
+    this.minimapPlayerDot = this.add.graphics();
+    this.miniMapContainer.add(this.minimapPlayerDot);
 
     // Pulse animation for player dot
     this.tweens.add({
-      targets: playerDot,
-      alpha: 0.5,
-      duration: 800,
+      targets: this.minimapPlayerDot,
+      alpha: { from: 1, to: 0.5 },
+      duration: 600,
       yoyo: true,
       repeat: -1
     });
+  }
+
+  // Convert game coordinates to minimap coordinates
+  private gameToMinimap(gameX: number, gameY: number): { x: number; y: number } {
+    const scaleX = this.MINIMAP_CONTENT_W / GAME_WIDTH;
+    const scaleY = this.MINIMAP_CONTENT_H / GAME_HEIGHT;
+    return {
+      x: this.MINIMAP_CONTENT_X + gameX * scaleX,
+      y: this.MINIMAP_CONTENT_Y + gameY * scaleY
+    };
+  }
+
+  // Draw map layout (platforms) on minimap
+  private drawMinimapLayout(): void {
+    this.minimapContent.clear();
+
+    if (!this.currentMapData) return;
+
+    const scaleX = this.MINIMAP_CONTENT_W / GAME_WIDTH;
+    const scaleY = this.MINIMAP_CONTENT_H / GAME_HEIGHT;
+
+    // Draw platforms as lines
+    this.minimapContent.lineStyle(2, 0x8b7355, 0.8);
+    for (const platform of this.currentMapData.platforms) {
+      const pos = this.gameToMinimap(platform.x, platform.y);
+      const width = platform.type === 'ground' ? 120 * scaleX : 40 * scaleX;
+      this.minimapContent.strokeRect(pos.x - width / 2, pos.y - 1, width, 2);
+    }
+
+    // Draw ladders as vertical lines
+    this.minimapContent.lineStyle(1, 0xdaa520, 0.6);
+    for (const ladder of this.currentMapData.ladders) {
+      const pos = this.gameToMinimap(ladder.x, ladder.y);
+      const height = ladder.height * scaleY;
+      this.minimapContent.strokeRect(pos.x - 1, pos.y - height / 2, 2, height);
+    }
+  }
+
+  // Draw portal markers
+  private drawMinimapPortals(): void {
+    this.minimapPortalDots.clear();
+
+    if (!this.currentMapData) return;
+
+    // Draw portals as blue diamonds
+    for (const portal of this.currentMapData.portals) {
+      const pos = this.gameToMinimap(portal.x, portal.y);
+      this.minimapPortalDots.fillStyle(0x00aaff, 0.9);
+      // Diamond shape
+      this.minimapPortalDots.fillTriangle(
+        pos.x, pos.y - 4,
+        pos.x - 3, pos.y,
+        pos.x + 3, pos.y
+      );
+      this.minimapPortalDots.fillTriangle(
+        pos.x, pos.y + 4,
+        pos.x - 3, pos.y,
+        pos.x + 3, pos.y
+      );
+    }
+  }
+
+  // Draw NPC markers
+  private drawMinimapNpcs(): void {
+    this.minimapNpcDots.clear();
+
+    if (!this.currentMapData) return;
+
+    // Draw NPCs as yellow squares
+    this.minimapNpcDots.fillStyle(0xffcc00, 1);
+    for (const npc of this.currentMapData.npcs) {
+      const pos = this.gameToMinimap(npc.x, npc.y);
+      this.minimapNpcDots.fillRect(pos.x - 2, pos.y - 2, 4, 4);
+    }
+  }
+
+  // Update monster positions on minimap
+  public updateMinimapMonsters(monsters: { x: number; y: number }[]): void {
+    if (!this.minimapMonsterDots) return;
+
+    this.minimapMonsterDots.clear();
+
+    // Draw monsters as red dots
+    this.minimapMonsterDots.fillStyle(0xff4444, 0.9);
+    for (const monster of monsters) {
+      const pos = this.gameToMinimap(monster.x, monster.y);
+      this.minimapMonsterDots.fillCircle(pos.x, pos.y, 2);
+    }
+  }
+
+  // Update player position on minimap
+  public updateMinimapPlayer(playerX: number, playerY: number): void {
+    if (!this.minimapPlayerDot) return;
+
+    this.minimapPlayerDot.clear();
+
+    const pos = this.gameToMinimap(playerX, playerY);
+
+    // Draw player as green arrow/triangle pointing up
+    this.minimapPlayerDot.fillStyle(0x00ff00, 1);
+    this.minimapPlayerDot.fillTriangle(
+      pos.x, pos.y - 4,
+      pos.x - 3, pos.y + 3,
+      pos.x + 3, pos.y + 3
+    );
+    // White border for visibility
+    this.minimapPlayerDot.lineStyle(1, 0xffffff, 0.8);
+    this.minimapPlayerDot.strokeTriangle(
+      pos.x, pos.y - 4,
+      pos.x - 3, pos.y + 3,
+      pos.x + 3, pos.y + 3
+    );
+  }
+
+  // Set current map data and redraw minimap
+  public setMapData(mapData: MapDefinition): void {
+    this.currentMapData = mapData;
+    // Only update if minimap has been created
+    if (this.mapTitleText) {
+      this.mapTitleText.setText(mapData.name);
+      this.drawMinimapLayout();
+      this.drawMinimapPortals();
+      this.drawMinimapNpcs();
+    }
   }
 
   private updateFancyBar(

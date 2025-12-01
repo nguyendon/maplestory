@@ -30,7 +30,7 @@ import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemD
 import { DroppedItem } from '../entities/DroppedItem';
 import { defaultSaveManager, type SaveData } from '../systems/SaveManager';
 import type UIScene from './UIScene';
-import { getDefaultMap, getMap, type MapDefinition, type BackgroundTheme } from '../config/MapData';
+import { getDefaultMap, getMap, MAPS, type MapDefinition, type BackgroundTheme } from '../config/MapData';
 import { JobId, getJob } from '../systems/JobData';
 import { getSkillsForJobAndLevel } from '../skills/SkillData';
 
@@ -209,6 +209,18 @@ export class GameScene extends Phaser.Scene {
     // Create world map UI
     this.worldMapUI = new WorldMapUI(this);
     this.worldMapUI.setCurrentMap(this.currentMap.id);
+    this.worldMapUI.setOnTeleport((mapId: string) => {
+      const targetMap = MAPS[mapId];
+      if (targetMap) {
+        this.loadMap(mapId, targetMap.playerSpawn.x, targetMap.playerSpawn.y);
+      }
+    });
+
+    // Initialize minimap with current map data
+    const uiSceneInit = this.scene.get('UIScene') as UIScene;
+    if (uiSceneInit) {
+      uiSceneInit.setMapData(this.currentMap);
+    }
 
     // Set initial skill bindings (beginner skills available at level 1)
     const initialSkillBindings = new Map<string, SkillDefinition>();
@@ -265,6 +277,9 @@ export class GameScene extends Phaser.Scene {
 
     // Launch UI Scene
     this.scene.launch('UIScene');
+
+    // Make sure GameScene's input is processed (set to top priority for interactive objects)
+    this.input.setTopOnly(false);
 
     // Load saved game (must happen after all UI is set up)
     this.loadGame().then(loaded => {
@@ -362,11 +377,14 @@ export class GameScene extends Phaser.Scene {
     if (threeSnails) this.skillBar.assignSkill(1, threeSnails);
     if (recovery) this.skillBar.assignSkill(2, recovery);
 
-    // Set cooldown callback
+    // Set cooldown callbacks
     this.skillBar.setCooldownCallback((skillId: string) => {
       const skill = getSkill(skillId);
       if (!skill) return 0;
       return this.skillManager.getCooldownPercent(skillId, skill.cooldown);
+    });
+    this.skillBar.setCooldownRemainingCallback((skillId: string) => {
+      return this.skillManager.getCooldownRemaining(skillId);
     });
 
     // Listen for skill events
@@ -906,6 +924,25 @@ export class GameScene extends Phaser.Scene {
       `Mesos: ${this.inventory.getMesos()}`,
       `Monsters: ${this.monsters.filter(m => !m['isDead']).length}/${this.monsters.length}`,
     ]);
+
+    // Update minimap (every few frames to reduce overhead)
+    if (time % 100 < delta) {
+      this.updateMinimap();
+    }
+  }
+
+  private updateMinimap(): void {
+    const uiScene = this.scene.get('UIScene') as UIScene;
+    if (!uiScene) return;
+
+    // Update player position
+    uiScene.updateMinimapPlayer(this.player.x, this.player.y);
+
+    // Update monster positions (only alive monsters)
+    const monsterPositions = this.monsters
+      .filter(m => !m['isDead'])
+      .map(m => ({ x: m.x, y: m.y }));
+    uiScene.updateMinimapMonsters(monsterPositions);
   }
 
   private handlePlayerAttack(): void {
@@ -1149,6 +1186,12 @@ export class GameScene extends Phaser.Scene {
     // Update UI
     this.events.emit('map:changed', { mapName: newMap.name, isSafeZone: newMap.isSafeZone });
     this.worldMapUI.setCurrentMap(mapId);
+
+    // Update minimap with new map data
+    const uiScene = this.scene.get('UIScene') as UIScene;
+    if (uiScene) {
+      uiScene.setMapData(newMap);
+    }
 
     console.log(`Loaded map: ${newMap.name} (${newMap.backgroundTheme}${newMap.isSafeZone ? ', safe zone' : ''})`);
   }
