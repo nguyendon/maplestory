@@ -19,6 +19,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   public expReward: number;
   public monsterName: string;
   public stats: EntityStats;
+  public networkId: string = ''; // For multiplayer sync
 
   protected definition: MonsterDefinition;
   protected hurtbox!: Hurtbox;
@@ -367,6 +368,23 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       x: this.x,
       y: this.y,
     });
+  }
+
+  /**
+   * Sync HP from server (for multiplayer)
+   */
+  public syncHP(hp: number): void {
+    if (this.isDead && hp > 0) {
+      // Monster respawned on server
+      this.respawn();
+    }
+
+    this.hp = hp;
+    this.updateHealthBar();
+
+    if (hp <= 0 && !this.isDead) {
+      this.die();
+    }
   }
 
   public die(): void {
