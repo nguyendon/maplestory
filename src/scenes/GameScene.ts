@@ -734,6 +734,7 @@ export class GameScene extends Phaser.Scene {
 
     // K key to open skill config (slot-based)
     this.input.keyboard?.on('keydown-K', () => {
+      if (this.chatUI.isOpen) return;
       if (this.dialogueBox.isOpen) return;
       if (this.keyboardConfigUI.isOpen) return;
       this.skillConfigUI.toggle();
@@ -741,6 +742,7 @@ export class GameScene extends Phaser.Scene {
 
     // F3 key to toggle debug info (hardcoded, not configurable)
     this.input.keyboard?.on('keydown-F3', () => {
+      if (this.chatUI.isOpen) return;
       this.debugVisible = !this.debugVisible;
       this.debugText.setVisible(this.debugVisible);
     });
@@ -933,6 +935,7 @@ export class GameScene extends Phaser.Scene {
       case 'CHAT':
         if (!this.dialogueBox.isOpen && !this.keyboardConfigUI.isOpen) {
           this.chatUI.open();
+          this.player.inputEnabled = false;
         }
         break;
       // JUMP and ATTACK are handled directly by the Player class
@@ -943,6 +946,7 @@ export class GameScene extends Phaser.Scene {
     // Close any open menus in order of priority, or open keyboard config
     if (this.chatUI.isOpen) {
       this.chatUI.close();
+      this.player.inputEnabled = true;
       return;
     }
     if (this.dialogueBox.isOpen) {
@@ -1619,6 +1623,7 @@ export class GameScene extends Phaser.Scene {
 
     // Keyboard config hotkey (backslash key)
     this.input.keyboard?.on('keydown-BACK_SLASH', () => {
+      if (this.chatUI.isOpen) return;
       if (!this.dialogueBox.isOpen) {
         this.keyboardConfigUI.toggle();
       }
@@ -1626,6 +1631,7 @@ export class GameScene extends Phaser.Scene {
 
     // Portal interaction key (UP arrow when near portal)
     this.input.keyboard?.on('keydown-UP', () => {
+      if (this.chatUI.isOpen) return;
       if (this.dialogueBox.isOpen) return;
 
       if (this.nearbyPortal && this.nearbyPortal.isActive) {
@@ -1633,20 +1639,28 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Dialogue controls
+    // Dialogue controls (these still work when chat is open since dialogue takes priority)
     this.input.keyboard?.on('keydown-SPACE', () => {
+      if (this.chatUI.isOpen) return;
       if (this.dialogueBox.isOpen) {
         this.dialogueBox.handleInput('SPACE');
       }
     });
 
     this.input.keyboard?.on('keydown-ENTER', () => {
+      if (this.chatUI.isOpen) return;
       if (this.dialogueBox.isOpen) {
         this.dialogueBox.handleInput('ENTER');
       }
     });
 
     this.input.keyboard?.on('keydown-ESC', () => {
+      // ESC can close chat
+      if (this.chatUI.isOpen) {
+        this.chatUI.close();
+        this.player.inputEnabled = true;
+        return;
+      }
       if (this.dialogueBox.isOpen) {
         this.dialogueBox.handleInput('ESC');
       }
@@ -1654,12 +1668,14 @@ export class GameScene extends Phaser.Scene {
 
     // Arrow keys for dialogue choice selection
     this.input.keyboard?.on('keydown-UP', () => {
+      if (this.chatUI.isOpen) return;
       if (this.dialogueBox.isOpen) {
         this.dialogueBox.handleInput('UP');
       }
     });
 
     this.input.keyboard?.on('keydown-DOWN', () => {
+      if (this.chatUI.isOpen) return;
       if (this.dialogueBox.isOpen) {
         this.dialogueBox.handleInput('DOWN');
       }
