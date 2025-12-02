@@ -182,8 +182,8 @@ export class GameScene extends Phaser.Scene {
     // Create skill bar (top-right corner, toggleable with TAB)
     this.skillBar = new SkillBar(this, GAME_WIDTH - 180, 35);
 
-    // Create buff indicator UI (below the skill bar)
-    this.buffIndicatorUI = new BuffIndicatorUI(this, GAME_WIDTH - 330, 85);
+    // Create buff indicator UI (top-left corner, below HP/MP bars)
+    this.buffIndicatorUI = new BuffIndicatorUI(this, 15, 85);
 
     // Create skill config UI (skill tree / level display)
     this.skillConfigUI = new SkillConfigUI(this);
