@@ -184,8 +184,11 @@ export class GameScene extends Phaser.Scene {
     this.skillConfigUI = new SkillConfigUI(this);
     // Set player's job and level for filtering skills
     this.skillConfigUI.setJobAndLevel(this.playerStats.job, this.playerStats.level);
-    // Give some skill points to test with
-    this.skillConfigUI.setSkillPoints(5);
+    // Initialize with current SP and listen for changes
+    this.skillConfigUI.setSkillPoints(this.playerStats.unassignedSP);
+    this.playerStats.on('spChanged', (sp: number) => {
+      this.skillConfigUI.setSkillPoints(sp);
+    });
 
     // Create keyboard config UI (MapleStory style - full keyboard)
     this.keyboardConfigUI = new KeyboardConfigUI(this);
@@ -259,6 +262,11 @@ export class GameScene extends Phaser.Scene {
           if (targetMap) {
             this.loadMap(mapId, targetMap.playerSpawn.x, targetMap.playerSpawn.y);
           }
+        },
+        changeJob: (jobId) => {
+          this.playerStats.setJob(jobId);
+          this.updateSkillsForJob(jobId);
+          this.events.emit('job:changed', { job: jobId });
         },
       };
       executeCommand(command, args, context);
@@ -663,6 +671,12 @@ export class GameScene extends Phaser.Scene {
         const equipATK = this.equipment.getTotalStats().ATK || 0;
         const buffATK = this.skillManager.getBuffBonus('ATK');
         return baseATK + equipATK + buffATK;
+      },
+      getMATK: () => {
+        const baseMATK = this.playerStats.getMATK();
+        const equipMATK = this.equipment.getTotalStats().MATK || 0;
+        const buffMATK = this.skillManager.getBuffBonus('MATK');
+        return baseMATK + equipMATK + buffMATK;
       }
     });
 
@@ -720,6 +734,21 @@ export class GameScene extends Phaser.Scene {
           this.skillHitbox = null;
           this.skillHitData = null;
         });
+      }
+
+      // Handle mobility skills (teleport)
+      if (data.skill.type === 'mobility' && data.skill.id === 'TELEPORT') {
+        const teleportDistance = 150;
+        const facingRight = !this.player.flipX;
+        const direction = facingRight ? 1 : -1;
+        const newX = this.player.x + (teleportDistance * direction);
+
+        // Clamp to map bounds (using GAME_WIDTH since maps are currently screen-sized)
+        const minX = 50;
+        const maxX = GAME_WIDTH - 50;
+        const clampedX = Phaser.Math.Clamp(newX, minX, maxX);
+
+        this.player.setPosition(clampedX, this.player.y);
       }
 
       // Update MP bar
@@ -2337,6 +2366,9 @@ export class GameScene extends Phaser.Scene {
   private updateSkillsForJob(jobId: JobId): void {
     // Update keyboard config UI with new job and level
     this.keyboardConfigUI.updateJobAndLevel(jobId, this.playerStats.level);
+
+    // Update skill config UI with new job and level
+    this.skillConfigUI.setJobAndLevel(jobId, this.playerStats.level);
 
     // Get skills available for this job
     const jobSkills = getSkillsForJobAndLevel(jobId, this.playerStats.level);
