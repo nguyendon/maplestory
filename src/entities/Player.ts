@@ -16,6 +16,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private stateMachine: StateMachine;
   private _currentState: PlayerState = 'IDLE';
 
+  // Name tag above player
+  private nameText: Phaser.GameObjects.Text | null = null;
+  private playerName: string = '';
+
   // Jump mechanics
   private lastGroundedTime: number = 0;
   private lastJumpPressTime: number = 0;
@@ -42,6 +46,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
+
+    // Explicitly set origin to center (matches RemotePlayer)
+    this.setOrigin(0.5, 0.5);
 
     // Configure physics
     this.setCollideWorldBounds(true);
@@ -93,6 +100,39 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Update animation based on state
     this.updateAnimation(onGround);
+
+    // Update name tag position to follow player
+    this.updateNameTag();
+  }
+
+  /**
+   * Set the player's display name
+   */
+  setPlayerName(name: string): void {
+    this.playerName = name;
+
+    if (!this.nameText) {
+      this.nameText = this.scene.add.text(this.x, this.y - 40, name, {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#00ff00', // Green for local player
+        stroke: '#000000',
+        strokeThickness: 3,
+      });
+      this.nameText.setOrigin(0.5, 0.5);
+      this.nameText.setDepth(100);
+    } else {
+      this.nameText.setText(name);
+    }
+  }
+
+  /**
+   * Update name tag position
+   */
+  private updateNameTag(): void {
+    if (this.nameText) {
+      this.nameText.setPosition(this.x, this.y - 40);
+    }
   }
 
   // === ATTACK METHODS ===
