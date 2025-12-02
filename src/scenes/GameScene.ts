@@ -296,6 +296,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('M', ACTIONS.MINIMAP);
     initialActionBindings.set('ESC', ACTIONS.MENU);
     initialActionBindings.set('F5', ACTIONS.SAVE);
+    initialActionBindings.set('FORWARD_SLASH', ACTIONS.CHAT);
     this.actionBindings = initialActionBindings;
 
     this.keyboardConfigUI.setInitialBindings(initialSkillBindings, initialActionBindings);
@@ -832,13 +833,6 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      // Enter key opens chat (when no other UI is open)
-      if (event.key === 'Enter' && !this.dialogueBox.isOpen && !this.skillConfigUI.isOpen && !this.keyboardConfigUI.isOpen) {
-        this.chatUI.open();
-        event.preventDefault();
-        return;
-      }
-
       // ESC can always be used to close menus
       if (event.code === 'Escape') return; // Let the ESC handler in setupSkillSystem handle this
 
@@ -934,6 +928,11 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'MENU':
         this.handleMenuAction();
+        break;
+      case 'CHAT':
+        if (!this.dialogueBox.isOpen && !this.keyboardConfigUI.isOpen) {
+          this.chatUI.open();
+        }
         break;
       // JUMP and ATTACK are handled directly by the Player class
     }

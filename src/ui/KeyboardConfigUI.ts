@@ -27,6 +27,7 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   MINIMAP: { id: 'MINIMAP', name: 'Minimap', color: 0x5a7f8a },
   MENU: { id: 'MENU', name: 'Menu', color: 0x6a6a8a },
   SAVE: { id: 'SAVE', name: 'Save', color: 0x228b22 },
+  CHAT: { id: 'CHAT', name: 'Chat', color: 0x66cccc },
 };
 
 type BindingType = SkillDefinition | ActionDefinition;

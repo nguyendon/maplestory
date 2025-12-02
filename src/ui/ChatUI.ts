@@ -45,7 +45,8 @@ export class ChatUI {
 
   private create(): void {
     const x = this.PADDING;
-    const y = GAME_HEIGHT - this.INPUT_HEIGHT - this.PADDING;
+    // Position above the exp bar (which is at the bottom of the screen)
+    const y = GAME_HEIGHT - this.INPUT_HEIGHT - 35; // 35px above bottom for exp bar
 
     // Main container
     this.container = this.scene.add.container(0, 0);
