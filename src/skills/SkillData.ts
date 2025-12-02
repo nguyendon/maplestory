@@ -61,6 +61,48 @@ export interface SkillDefinition {
   projectileSpeed?: number; // For ranged skills
   buffDuration?: number; // For buff skills, in ms
   buffEffect?: { stat: string; value: number }; // What the buff modifies
+  // Skill tree properties
+  maxLevel: number; // Maximum skill level (default 20)
+  damagePerLevel: number; // Damage increase per skill level (default 5%)
+  mpCostPerLevel: number; // MP cost increase per level (default 1)
+  prerequisite?: { skillId: string; level: number }; // Required skill at level
+}
+
+/**
+ * Calculate skill stats at a given level
+ */
+export function getSkillAtLevel(skill: SkillDefinition, level: number): {
+  damage: number;
+  mpCost: number;
+  cooldown: number;
+  buffValue?: number;
+} {
+  const clampedLevel = Math.max(0, Math.min(level, skill.maxLevel));
+  if (clampedLevel === 0) {
+    return { damage: 0, mpCost: skill.mpCost, cooldown: skill.cooldown };
+  }
+
+  const damagePerLevel = skill.damagePerLevel ?? 5;
+  const mpCostPerLevel = skill.mpCostPerLevel ?? 1;
+
+  // Level 1 = base damage, each level adds damagePerLevel%
+  const damageMultiplier = 1 + ((clampedLevel - 1) * damagePerLevel / 100);
+  const damage = Math.floor(skill.damage * damageMultiplier);
+
+  // MP cost increases per level
+  const mpCost = skill.mpCost + ((clampedLevel - 1) * mpCostPerLevel);
+
+  // Cooldown slightly decreases at higher levels (max 20% reduction at max level)
+  const cooldownReduction = (clampedLevel - 1) / (skill.maxLevel - 1) * 0.2;
+  const cooldown = Math.floor(skill.cooldown * (1 - cooldownReduction));
+
+  // Buff value also scales
+  let buffValue: number | undefined;
+  if (skill.buffEffect) {
+    buffValue = Math.floor(skill.buffEffect.value * damageMultiplier);
+  }
+
+  return { damage, mpCost, cooldown, buffValue };
 }
 
 // ============================================
@@ -84,7 +126,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 150, y: -100 },
     requiredLevel: 10,
     animation: 'slash',
-    effectColor: 0xff6600
+    effectColor: 0xff6600,
+    maxLevel: 20,
+    damagePerLevel: 6,
+    mpCostPerLevel: 1
   },
   SLASH_BLAST: {
     id: 'SLASH_BLAST',
@@ -102,7 +147,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 100, y: -80 },
     requiredLevel: 10,
     animation: 'wide_slash',
-    effectColor: 0xff4444
+    effectColor: 0xff4444,
+    maxLevel: 20,
+    damagePerLevel: 5,
+    mpCostPerLevel: 1,
+    prerequisite: { skillId: 'POWER_STRIKE', level: 5 }
   },
   GROUND_SMASH: {
     id: 'GROUND_SMASH',
@@ -120,7 +169,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 50, y: -200 },
     requiredLevel: 15,
     animation: 'smash',
-    effectColor: 0xcc4400
+    effectColor: 0xcc4400,
+    maxLevel: 20,
+    damagePerLevel: 7,
+    mpCostPerLevel: 2,
+    prerequisite: { skillId: 'SLASH_BLAST', level: 10 }
   },
   // Warrior - Buff Skills
   RAGE: {
@@ -141,7 +194,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0xff0000,
     buffDuration: 60000,
-    buffEffect: { stat: 'ATK', value: 20 }
+    buffEffect: { stat: 'ATK', value: 20 },
+    maxLevel: 20,
+    damagePerLevel: 3,
+    mpCostPerLevel: 1
   },
   IRON_BODY: {
     id: 'IRON_BODY',
@@ -161,7 +217,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0x888888,
     buffDuration: 60000,
-    buffEffect: { stat: 'DEF', value: 30 }
+    buffEffect: { stat: 'DEF', value: 30 },
+    maxLevel: 20,
+    damagePerLevel: 4,
+    mpCostPerLevel: 1,
+    prerequisite: { skillId: 'RAGE', level: 5 }
   },
 
   // ============================================
@@ -184,7 +244,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 10,
     animation: 'magic_bolt',
     effectColor: 0x9966ff,
-    projectileSpeed: 600
+    projectileSpeed: 600,
+    maxLevel: 20,
+    damagePerLevel: 5,
+    mpCostPerLevel: 1
   },
   FIRE_ARROW: {
     id: 'FIRE_ARROW',
@@ -203,7 +266,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 12,
     animation: 'fire_arrow',
     effectColor: 0xff4400,
-    projectileSpeed: 500
+    projectileSpeed: 500,
+    maxLevel: 20,
+    damagePerLevel: 6,
+    mpCostPerLevel: 2,
+    prerequisite: { skillId: 'MAGIC_BOLT', level: 5 }
   },
   ICE_BEAM: {
     id: 'ICE_BEAM',
@@ -222,7 +289,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 15,
     animation: 'ice_beam',
     effectColor: 0x66ccff,
-    projectileSpeed: 800
+    projectileSpeed: 800,
+    maxLevel: 20,
+    damagePerLevel: 6,
+    mpCostPerLevel: 2,
+    prerequisite: { skillId: 'FIRE_ARROW', level: 10 }
   },
   TELEPORT: {
     id: 'TELEPORT',
@@ -240,7 +311,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 0, y: 0 },
     requiredLevel: 10,
     animation: 'teleport',
-    effectColor: 0xcc66ff
+    effectColor: 0xcc66ff,
+    maxLevel: 10,
+    damagePerLevel: 0,
+    mpCostPerLevel: 0
   },
   MAGIC_GUARD: {
     id: 'MAGIC_GUARD',
@@ -260,7 +334,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0x6699ff,
     buffDuration: 120000,
-    buffEffect: { stat: 'MAGIC_GUARD', value: 50 }
+    buffEffect: { stat: 'MAGIC_GUARD', value: 50 },
+    maxLevel: 20,
+    damagePerLevel: 3,
+    mpCostPerLevel: 0
   },
 
   // ============================================
@@ -283,7 +360,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 10,
     animation: 'arrow',
     effectColor: 0x66cc66,
-    projectileSpeed: 700
+    projectileSpeed: 700,
+    maxLevel: 20,
+    damagePerLevel: 5,
+    mpCostPerLevel: 1
   },
   ARROW_BOMB: {
     id: 'ARROW_BOMB',
@@ -302,7 +382,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 15,
     animation: 'arrow_bomb',
     effectColor: 0xff9900,
-    projectileSpeed: 500
+    projectileSpeed: 500,
+    maxLevel: 20,
+    damagePerLevel: 6,
+    mpCostPerLevel: 2,
+    prerequisite: { skillId: 'DOUBLE_SHOT', level: 5 }
   },
   ARROW_RAIN: {
     id: 'ARROW_RAIN',
@@ -320,7 +404,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 20, y: 50 },
     requiredLevel: 18,
     animation: 'arrow_rain',
-    effectColor: 0x44aa44
+    effectColor: 0x44aa44,
+    maxLevel: 20,
+    damagePerLevel: 5,
+    mpCostPerLevel: 2,
+    prerequisite: { skillId: 'ARROW_BOMB', level: 10 }
   },
   SOUL_ARROW: {
     id: 'SOUL_ARROW',
@@ -340,7 +428,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0x88ff88,
     buffDuration: 90000,
-    buffEffect: { stat: 'ATK', value: 15 }
+    buffEffect: { stat: 'ATK', value: 15 },
+    maxLevel: 20,
+    damagePerLevel: 2,
+    mpCostPerLevel: 1
   },
   FOCUS: {
     id: 'FOCUS',
@@ -360,7 +451,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0xffff66,
     buffDuration: 60000,
-    buffEffect: { stat: 'CRIT', value: 15 }
+    buffEffect: { stat: 'CRIT', value: 15 },
+    maxLevel: 20,
+    damagePerLevel: 2,
+    mpCostPerLevel: 1,
+    prerequisite: { skillId: 'SOUL_ARROW', level: 5 }
   },
 
   // ============================================
@@ -383,7 +478,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 10,
     animation: 'throwing_star',
     effectColor: 0x9966cc,
-    projectileSpeed: 800
+    projectileSpeed: 800,
+    maxLevel: 20,
+    damagePerLevel: 5,
+    mpCostPerLevel: 1
   },
   DOUBLE_STAB: {
     id: 'DOUBLE_STAB',
@@ -401,7 +499,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 60, y: -30 },
     requiredLevel: 10,
     animation: 'stab',
-    effectColor: 0xcc66cc
+    effectColor: 0xcc66cc,
+    maxLevel: 20,
+    damagePerLevel: 6,
+    mpCostPerLevel: 1
   },
   DISORDER: {
     id: 'DISORDER',
@@ -419,7 +520,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 20, y: 0 },
     requiredLevel: 12,
     animation: 'disorder',
-    effectColor: 0x663399
+    effectColor: 0x663399,
+    maxLevel: 20,
+    damagePerLevel: 4,
+    mpCostPerLevel: 1,
+    prerequisite: { skillId: 'DOUBLE_STAB', level: 5 }
   },
   HASTE: {
     id: 'HASTE',
@@ -439,7 +544,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0xffcc00,
     buffDuration: 60000,
-    buffEffect: { stat: 'SPEED', value: 25 }
+    buffEffect: { stat: 'SPEED', value: 25 },
+    maxLevel: 20,
+    damagePerLevel: 2,
+    mpCostPerLevel: 1
   },
   DARK_SIGHT: {
     id: 'DARK_SIGHT',
@@ -459,7 +567,11 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0x333333,
     buffDuration: 15000,
-    buffEffect: { stat: 'STEALTH', value: 100 }
+    buffEffect: { stat: 'STEALTH', value: 100 },
+    maxLevel: 15,
+    damagePerLevel: 0,
+    mpCostPerLevel: 1,
+    prerequisite: { skillId: 'HASTE', level: 5 }
   },
 
   // ============================================
@@ -482,7 +594,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     requiredLevel: 1,
     animation: 'throw',
     effectColor: 0x88cc88,
-    projectileSpeed: 400
+    projectileSpeed: 400,
+    maxLevel: 10,
+    damagePerLevel: 5,
+    mpCostPerLevel: 0
   },
   RECOVERY: {
     id: 'RECOVERY',
@@ -502,7 +617,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'heal',
     effectColor: 0x88ff88,
     buffDuration: 5000,
-    buffEffect: { stat: 'REGEN', value: 5 }
+    buffEffect: { stat: 'REGEN', value: 5 },
+    maxLevel: 10,
+    damagePerLevel: 10,
+    mpCostPerLevel: 0
   },
   NIMBLE_FEET: {
     id: 'NIMBLE_FEET',
@@ -522,7 +640,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     animation: 'buff',
     effectColor: 0xffff66,
     buffDuration: 15000,
-    buffEffect: { stat: 'SPEED', value: 15 }
+    buffEffect: { stat: 'SPEED', value: 15 },
+    maxLevel: 10,
+    damagePerLevel: 3,
+    mpCostPerLevel: 0
   },
   DOUBLE_STRIKE: {
     id: 'DOUBLE_STRIKE',
@@ -540,7 +661,10 @@ export const SKILLS: Record<string, SkillDefinition> = {
     knockback: { x: 80, y: -50 },
     requiredLevel: 1,
     animation: 'double_slash',
-    effectColor: 0xffaa00
+    effectColor: 0xffaa00,
+    maxLevel: 10,
+    damagePerLevel: 5,
+    mpCostPerLevel: 0
   }
 };
 
