@@ -20,6 +20,17 @@ export interface NetworkPlayer {
   activeSkill: string;
 }
 
+export interface NetworkMonster {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  state: string;
+  facingRight: boolean;
+}
+
 export interface ChatMessage {
   playerId: string;
   playerName: string;
@@ -44,6 +55,9 @@ export class NetworkManager extends Phaser.Events.EventEmitter {
 
   // Cached players from server state
   private remotePlayers: Map<string, NetworkPlayer> = new Map();
+
+  // Cached monsters from server state
+  private remoteMonsters: Map<string, NetworkMonster> = new Map();
 
   // Throttle position updates
   private lastPositionUpdate: number = 0;
@@ -72,6 +86,10 @@ export class NetworkManager extends Phaser.Events.EventEmitter {
 
   getRemotePlayers(): Map<string, NetworkPlayer> {
     return this.remotePlayers;
+  }
+
+  getRemoteMonsters(): Map<string, NetworkMonster> {
+    return this.remoteMonsters;
   }
 
   /**
@@ -141,7 +159,11 @@ export class NetworkManager extends Phaser.Events.EventEmitter {
 
     // Listen for state changes
     this.room.state.players.onAdd((player: any, key: string) => {
-      if (key === this.playerId) return; // Skip local player
+      console.log(`[Network] Player added: ${key}, name: ${player.name}, mapId: ${player.mapId}`);
+      if (key === this.playerId) {
+        console.log('[Network] Skipping local player');
+        return;
+      }
 
       const networkPlayer: NetworkPlayer = {
         id: key,
@@ -194,6 +216,48 @@ export class NetworkManager extends Phaser.Events.EventEmitter {
       if (removed) {
         this.remotePlayers.delete(key);
         this.emit('playerLeft', removed);
+      }
+    });
+
+    // Listen for monster state changes
+    this.room.state.monsters.onAdd((monster: any, key: string) => {
+      console.log(`[Network] Monster added: ${key}, type: ${monster.type}`);
+
+      const networkMonster: NetworkMonster = {
+        id: key,
+        type: monster.type,
+        x: monster.x,
+        y: monster.y,
+        hp: monster.hp,
+        maxHp: monster.maxHp,
+        state: monster.state,
+        facingRight: monster.facingRight,
+      };
+
+      this.remoteMonsters.set(key, networkMonster);
+      this.emit('monsterAdded', networkMonster);
+
+      // Listen for changes on this monster
+      monster.onChange(() => {
+        const existing = this.remoteMonsters.get(key);
+        if (existing) {
+          existing.x = monster.x;
+          existing.y = monster.y;
+          existing.hp = monster.hp;
+          existing.maxHp = monster.maxHp;
+          existing.state = monster.state;
+          existing.facingRight = monster.facingRight;
+
+          this.emit('monsterUpdated', existing);
+        }
+      });
+    });
+
+    this.room.state.monsters.onRemove((_monster: any, key: string) => {
+      const removed = this.remoteMonsters.get(key);
+      if (removed) {
+        this.remoteMonsters.delete(key);
+        this.emit('monsterRemoved', removed);
       }
     });
 
@@ -352,6 +416,7 @@ export class NetworkManager extends Phaser.Events.EventEmitter {
     }
     this._isConnected = false;
     this.remotePlayers.clear();
+    this.remoteMonsters.clear();
     this.client = null;
   }
 }
