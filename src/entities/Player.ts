@@ -41,6 +41,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private currentAttackData: AttackData | null = null;
   public activeHitbox: Phaser.Geom.Rectangle | null = null;
 
+  // Input control
+  private _inputEnabled: boolean = true;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
 
@@ -86,23 +89,43 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Update combo reset timer
     this.updateComboTimer(delta);
 
-    // Check for attack input
-    this.handleAttackInput();
+    // Only handle input if enabled (not disabled by chat, etc.)
+    if (this._inputEnabled) {
+      // Check for attack input
+      this.handleAttackInput();
+    }
 
-    // Update attack frames
+    // Update attack frames (continue any in-progress attacks)
     this.updateAttackFrames(delta);
 
     // Update state machine
     this.stateMachine.update();
 
     // Handle variable jump height (cut jump when releasing)
-    this.handleJumpCut();
+    if (this._inputEnabled) {
+      this.handleJumpCut();
+    }
 
     // Update animation based on state
     this.updateAnimation(onGround);
 
     // Update name tag position to follow player
     this.updateNameTag();
+  }
+
+  /**
+   * Enable or disable player input (for chat, menus, etc.)
+   */
+  set inputEnabled(enabled: boolean) {
+    this._inputEnabled = enabled;
+    // Stop movement when disabling input
+    if (!enabled) {
+      this.setVelocityX(0);
+    }
+  }
+
+  get inputEnabled(): boolean {
+    return this._inputEnabled;
   }
 
   /**
@@ -530,6 +553,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private tryJumpOffLadder(): boolean {
+    if (!this._inputEnabled) return false;
     if (this.jumpKey && Phaser.Input.Keyboard.JustDown(this.jumpKey)) {
       this.releaseLadder();
 
@@ -548,6 +572,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private tryJump(): boolean {
+    if (!this._inputEnabled) return false;
+
     const time = this.scene.time.now;
     const jumpPressed = this.jumpKey ? Phaser.Input.Keyboard.JustDown(this.jumpKey) : false;
 
@@ -598,6 +624,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private tryMove(): boolean {
+    if (!this._inputEnabled) return false;
     if (this.cursors.left?.isDown || this.cursors.right?.isDown) {
       this.stateMachine.setState('WALK');
       return true;
@@ -623,11 +650,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const decel = onGround ? PLAYER.GROUND_DECEL : PLAYER.AIR_DECEL;
     const maxSpeed = onGround ? PLAYER.SPEED : PLAYER.AIR_SPEED;
 
-    if (this.cursors.left?.isDown) {
+    // Check if input is enabled before reading cursors
+    const leftDown = this._inputEnabled && this.cursors.left?.isDown;
+    const rightDown = this._inputEnabled && this.cursors.right?.isDown;
+
+    if (leftDown) {
       const newVel = Math.max(currentVelX - accel * delta, -maxSpeed);
       body.setVelocityX(newVel);
       this.setFlipX(true);
-    } else if (this.cursors.right?.isDown) {
+    } else if (rightDown) {
       const newVel = Math.min(currentVelX + accel * delta, maxSpeed);
       body.setVelocityX(newVel);
       this.setFlipX(false);
