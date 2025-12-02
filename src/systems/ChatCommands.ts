@@ -140,6 +140,49 @@ const commands: CommandDefinition[] = [
   },
 
   {
+    name: 'stat',
+    aliases: ['setstat', 'addstat'],
+    description: 'Set or add to a specific stat',
+    usage: '/stat <str|dex|int|luk> <value> [set]',
+    execute: (ctx, args) => {
+      if (args.length < 2) {
+        ctx.chatUI.addErrorMessage('Usage: /stat <str|dex|int|luk> <value> [set]');
+        ctx.chatUI.addSystemMessage('Add "set" to set exact value, otherwise adds to current');
+        return;
+      }
+
+      const statName = args[0].toUpperCase();
+      const value = parseInt(args[1], 10);
+      const isSet = args[2]?.toLowerCase() === 'set';
+
+      if (!['STR', 'DEX', 'INT', 'LUK'].includes(statName)) {
+        ctx.chatUI.addErrorMessage('Invalid stat. Use: str, dex, int, luk');
+        return;
+      }
+
+      if (isNaN(value) || value < 1 || value > 999) {
+        ctx.chatUI.addErrorMessage('Value must be between 1 and 999');
+        return;
+      }
+
+      const ps = ctx.playerStats as any;
+      if (isSet) {
+        ps._baseStats[statName] = value;
+        ctx.chatUI.addSuccessMessage(`${statName} set to ${value}!`);
+      } else {
+        ps._baseStats[statName] += value;
+        ctx.chatUI.addSuccessMessage(`${statName} increased by ${value}! Now: ${ps._baseStats[statName]}`);
+      }
+
+      ps._currentHP = ctx.playerStats.getMaxHP();
+      ps._currentMP = ctx.playerStats.getMaxMP();
+      ctx.playerStats.emit('statsChanged');
+      ctx.playerStats.emit('hpChanged', ctx.playerStats.currentHP, ctx.playerStats.getMaxHP());
+      ctx.playerStats.emit('mpChanged', ctx.playerStats.currentMP, ctx.playerStats.getMaxMP());
+    }
+  },
+
+  {
     name: 'resetskills',
     aliases: ['rskills', 'skillreset'],
     description: 'Reset all skills and refund SP',
@@ -309,7 +352,7 @@ const commands: CommandDefinition[] = [
       }
 
       ctx.chatUI.addSystemMessage('=== Available Commands ===');
-      ctx.chatUI.addSystemMessage('/job, /level, /sp, /ap, /exp');
+      ctx.chatUI.addSystemMessage('/job, /level, /sp, /ap, /stat, /exp');
       ctx.chatUI.addSystemMessage('/heal, /maxstats');
       ctx.chatUI.addSystemMessage('/resetskills, /resetstats');
       ctx.chatUI.addSystemMessage('/map, /stats, /help');
