@@ -14,6 +14,7 @@ export interface CommandContext {
   skillTree: PlayerSkillTree;
   chatUI: ChatUI;
   changeMap?: (mapId: string) => void;
+  changeJob?: (jobId: JobId) => void;
   giveItem?: (itemId: string, amount: number) => void;
   spawnMonster?: (monsterId: string, count: number) => void;
 }
@@ -62,7 +63,12 @@ const commands: CommandDefinition[] = [
         return;
       }
 
-      ctx.playerStats.setJob(targetJob);
+      // Use changeJob callback if available (updates skills), otherwise just set the job
+      if (ctx.changeJob) {
+        ctx.changeJob(targetJob);
+      } else {
+        ctx.playerStats.setJob(targetJob);
+      }
       const jobDef = JOBS[targetJob];
       ctx.chatUI.addSuccessMessage(`Job changed to ${jobDef.name}!`);
     }
