@@ -26,6 +26,8 @@ import { InventoryUI } from '../ui/InventoryUI';
 import { EquipmentUI } from '../ui/EquipmentUI';
 import { WorldMapUI } from '../ui/WorldMapUI';
 import { StatsUI } from '../ui/StatsUI';
+import { SkillTreeUI } from '../ui/SkillTreeUI';
+import { PlayerSkillTree } from '../skills/PlayerSkillTree';
 import { Equipment } from '../systems/Equipment';
 import { ItemType, EquipSlot, type EquipItem, type Item } from '../systems/ItemData';
 import { DroppedItem } from '../entities/DroppedItem';
@@ -71,6 +73,8 @@ export class GameScene extends Phaser.Scene {
   private equipmentUI!: EquipmentUI;
   private worldMapUI!: WorldMapUI;
   private statsUI!: StatsUI;
+  private skillTreeUI!: SkillTreeUI;
+  private playerSkillTree!: PlayerSkillTree;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -235,6 +239,11 @@ export class GameScene extends Phaser.Scene {
     this.statsUI = new StatsUI(this);
     this.statsUI.setPlayerStats(this.playerStats);
 
+    // Create skill tree system and UI
+    this.playerSkillTree = new PlayerSkillTree(this.playerStats);
+    this.skillTreeUI = new SkillTreeUI(this);
+    this.skillTreeUI.setPlayerStats(this.playerStats, this.playerSkillTree);
+
     // Initialize minimap with current map data
     const uiSceneInit = this.scene.get('UIScene') as UIScene;
     if (uiSceneInit) {
@@ -262,6 +271,7 @@ export class GameScene extends Phaser.Scene {
     initialActionBindings.set('I', ACTIONS.INVENTORY);
     initialActionBindings.set('E', ACTIONS.EQUIPMENT);
     initialActionBindings.set('S', ACTIONS.STATS);
+    initialActionBindings.set('K', ACTIONS.SKILL_TREE);
     initialActionBindings.set('W', ACTIONS.WORLD_MAP);
     initialActionBindings.set('M', ACTIONS.MINIMAP);
     initialActionBindings.set('ESC', ACTIONS.MENU);
@@ -869,6 +879,11 @@ export class GameScene extends Phaser.Scene {
           this.statsUI.toggle();
         }
         break;
+      case 'SKILL_TREE':
+        if (!this.dialogueBox.isOpen && !this.keyboardConfigUI.isOpen) {
+          this.skillTreeUI.toggle();
+        }
+        break;
       case 'PICKUP':
         this.tryPickupItems();
         break;
@@ -907,6 +922,14 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.worldMapUI.isOpen) {
       this.worldMapUI.close();
+      return;
+    }
+    if (this.skillTreeUI.isOpen) {
+      this.skillTreeUI.hide();
+      return;
+    }
+    if (this.statsUI.isOpen) {
+      this.statsUI.hide();
       return;
     }
     if (this.keyboardConfigUI.isOpen) {
