@@ -12,7 +12,8 @@ export class RemotePlayer extends Phaser.GameObjects.Container {
 
   private targetX: number = 0;
   private targetY: number = 0;
-  private interpolationSpeed: number = 0.2;
+  private interpolationSpeed: number = 0.3;
+  private hasReceivedFirstUpdate: boolean = false;
 
   public playerId: string;
   public playerName: string;
@@ -38,13 +39,18 @@ export class RemotePlayer extends Phaser.GameObjects.Container {
     this.targetX = data.x;
     this.targetY = data.y;
 
-    // Create sprite (using player texture)
+    // Create sprite (using player texture) - origin at center-center for proper positioning
     this.sprite = scene.add.sprite(0, 0, 'player');
-    this.sprite.setOrigin(0.5, 1);
+    this.sprite.setOrigin(0.5, 0.5);
     this.add(this.sprite);
 
-    // Create name tag
-    this.nameText = scene.add.text(0, -70, this.playerName, {
+    // Play idle animation
+    if (this.sprite.anims.exists('player-idle')) {
+      this.sprite.play('player-idle');
+    }
+
+    // Create name tag (positioned above sprite)
+    this.nameText = scene.add.text(0, -40, this.playerName, {
       fontFamily: 'Arial',
       fontSize: '12px',
       color: '#ffffff',
@@ -55,7 +61,7 @@ export class RemotePlayer extends Phaser.GameObjects.Container {
     this.add(this.nameText);
 
     // Create level display
-    this.levelText = scene.add.text(0, -56, `Lv.${this.level}`, {
+    this.levelText = scene.add.text(0, -26, `Lv.${this.level}`, {
       fontFamily: 'Arial',
       fontSize: '10px',
       color: '#ffcc00',
@@ -75,13 +81,15 @@ export class RemotePlayer extends Phaser.GameObjects.Container {
 
     // Set initial facing
     this.sprite.setFlipX(!data.facingRight);
+
+    console.log(`[RemotePlayer] Created ${this.playerName} at (${data.x}, ${data.y})`);
   }
 
   private updateHealthBar(): void {
     this.healthBar.clear();
 
     const barX = -this.HEALTH_BAR_WIDTH / 2;
-    const barY = -48;
+    const barY = -18;
     const hpPercent = Math.max(0, this.currentHP / this.maxHP);
 
     // Background
@@ -101,6 +109,12 @@ export class RemotePlayer extends Phaser.GameObjects.Container {
    * Update from network data
    */
   updateFromNetwork(data: NetworkPlayer): void {
+    // Snap to position on first update to avoid floating from spawn position
+    if (!this.hasReceivedFirstUpdate) {
+      this.setPosition(data.x, data.y);
+      this.hasReceivedFirstUpdate = true;
+    }
+
     this.targetX = data.x;
     this.targetY = data.y;
     this.mapId = data.mapId;
@@ -134,18 +148,20 @@ export class RemotePlayer extends Phaser.GameObjects.Container {
   /**
    * Smooth interpolation update
    */
-  update(_time: number, _delta: number): void {
+  update(_time: number, delta: number): void {
     // Interpolate position for smooth movement
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
     // If too far away, snap directly
-    if (Math.abs(dx) > 200 || Math.abs(dy) > 200) {
+    if (distance > 150) {
       this.setPosition(this.targetX, this.targetY);
-    } else {
-      // Smooth interpolation
-      this.x += dx * this.interpolationSpeed;
-      this.y += dy * this.interpolationSpeed;
+    } else if (distance > 1) {
+      // Use delta-time based interpolation for smoother movement
+      const t = Math.min(1, this.interpolationSpeed * delta / 16.67);
+      this.x += dx * t;
+      this.y += dy * t;
     }
   }
 
