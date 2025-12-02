@@ -133,27 +133,31 @@ export class SkillManager extends Phaser.Events.EventEmitter {
   }
 
   private applyBuff(skill: SkillDefinition): void {
-    // For the Rage skill, buff ATK
-    if (skill.id === 'RAGE') {
-      const buff: ActiveBuff = {
-        skillId: skill.id,
-        stat: 'ATK',
-        value: 20, // +20 ATK
-        endTime: Date.now() + 60000 // 60 seconds
-      };
-
-      // Remove existing buff of same type
-      this.activeBuffs = this.activeBuffs.filter(b => b.skillId !== skill.id);
-      this.activeBuffs.push(buff);
-
-      this.emit('buff:applied', buff);
-
-      // Schedule buff removal
-      this.scene.time.delayedCall(60000, () => {
-        this.activeBuffs = this.activeBuffs.filter(b => b.skillId !== skill.id);
-        this.emit('buff:expired', buff);
-      });
+    // Use buffEffect and buffDuration from skill definition if available
+    if (!skill.buffEffect || !skill.buffDuration) {
+      console.warn(`Buff skill ${skill.id} missing buffEffect or buffDuration`);
+      return;
     }
+
+    const duration = skill.buffDuration;
+    const buff: ActiveBuff = {
+      skillId: skill.id,
+      stat: skill.buffEffect.stat,
+      value: skill.buffEffect.value,
+      endTime: Date.now() + duration
+    };
+
+    // Remove existing buff of same type
+    this.activeBuffs = this.activeBuffs.filter(b => b.skillId !== skill.id);
+    this.activeBuffs.push(buff);
+
+    this.emit('buff:applied', buff);
+
+    // Schedule buff removal
+    this.scene.time.delayedCall(duration, () => {
+      this.activeBuffs = this.activeBuffs.filter(b => b.skillId !== skill.id);
+      this.emit('buff:expired', buff);
+    });
   }
 
   getBuffBonus(stat: string): number {

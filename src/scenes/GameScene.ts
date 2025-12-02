@@ -40,6 +40,7 @@ import { networkManager } from '../network/NetworkManager';
 import type { NetworkPlayer, NetworkMonster } from '../network/NetworkManager';
 import { RemotePlayer } from '../entities/RemotePlayer';
 import { ChatUI } from '../ui/ChatUI';
+import { BuffIndicatorUI } from '../ui/BuffIndicatorUI';
 import { executeCommand, type CommandContext } from '../systems/ChatCommands';
 
 export class GameScene extends Phaser.Scene {
@@ -78,6 +79,7 @@ export class GameScene extends Phaser.Scene {
   private skillTreeUI!: SkillTreeUI;
   private playerSkillTree!: PlayerSkillTree;
   private chatUI!: ChatUI;
+  private buffIndicatorUI!: BuffIndicatorUI;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -179,6 +181,9 @@ export class GameScene extends Phaser.Scene {
 
     // Create skill bar (top-right corner, toggleable with TAB)
     this.skillBar = new SkillBar(this, GAME_WIDTH - 180, 35);
+
+    // Create buff indicator UI (below the skill bar)
+    this.buffIndicatorUI = new BuffIndicatorUI(this, GAME_WIDTH - 330, 85);
 
     // Create skill config UI (skill tree / level display)
     this.skillConfigUI = new SkillConfigUI(this);
@@ -758,6 +763,15 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
+    // Listen for buff events
+    this.skillManager.on('buff:applied', (buff: { skillId: string; stat: string; value: number; endTime: number }) => {
+      this.buffIndicatorUI.addBuff(buff);
+    });
+
+    this.skillManager.on('buff:expired', (buff: { skillId: string }) => {
+      this.buffIndicatorUI.removeBuff(buff.skillId);
+    });
+
     // Set up skill hotkeys based on current bindings
     this.rebindSkillKeys();
 
@@ -1292,6 +1306,7 @@ export class GameScene extends Phaser.Scene {
     // Update skill systems
     this.skillManager.update();
     this.skillBar.update();
+    this.buffIndicatorUI.update();
 
     // Update player stats (HP/MP regeneration)
     this.playerStats.update(delta);
