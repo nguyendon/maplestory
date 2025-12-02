@@ -39,6 +39,8 @@ import { getSkillsForJobAndLevel } from '../skills/SkillData';
 import { networkManager } from '../network/NetworkManager';
 import type { NetworkPlayer, NetworkMonster } from '../network/NetworkManager';
 import { RemotePlayer } from '../entities/RemotePlayer';
+import { ChatUI } from '../ui/ChatUI';
+import { executeCommand, type CommandContext } from '../systems/ChatCommands';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -75,6 +77,7 @@ export class GameScene extends Phaser.Scene {
   private statsUI!: StatsUI;
   private skillTreeUI!: SkillTreeUI;
   private playerSkillTree!: PlayerSkillTree;
+  private chatUI!: ChatUI;
   private nearbyNPC: NPC | null = null;
   private nearbyPortal: Portal | null = null;
 
@@ -243,6 +246,23 @@ export class GameScene extends Phaser.Scene {
     this.playerSkillTree = new PlayerSkillTree(this.playerStats);
     this.skillTreeUI = new SkillTreeUI(this);
     this.skillTreeUI.setPlayerStats(this.playerStats, this.playerSkillTree);
+
+    // Create chat UI and set up command handler
+    this.chatUI = new ChatUI(this);
+    this.chatUI.onCommand((command, args) => {
+      const context: CommandContext = {
+        playerStats: this.playerStats,
+        skillTree: this.playerSkillTree,
+        chatUI: this.chatUI,
+        changeMap: (mapId: string) => {
+          const targetMap = getMap(mapId);
+          if (targetMap) {
+            this.loadMap(mapId, targetMap.playerSpawn.x, targetMap.playerSpawn.y);
+          }
+        },
+      };
+      executeCommand(command, args, context);
+    });
 
     // Initialize minimap with current map data
     const uiSceneInit = this.scene.get('UIScene') as UIScene;
@@ -805,6 +825,20 @@ export class GameScene extends Phaser.Scene {
 
     // Add new handler
     this.input.keyboard.on('keydown', (event: KeyboardEvent) => {
+      // Handle chat input first (if open, consume all keys)
+      if (this.chatUI.isOpen) {
+        this.chatUI.handleKeyDown(event);
+        event.preventDefault();
+        return;
+      }
+
+      // Enter key opens chat (when no other UI is open)
+      if (event.key === 'Enter' && !this.dialogueBox.isOpen && !this.skillConfigUI.isOpen && !this.keyboardConfigUI.isOpen) {
+        this.chatUI.open();
+        event.preventDefault();
+        return;
+      }
+
       // ESC can always be used to close menus
       if (event.code === 'Escape') return; // Let the ESC handler in setupSkillSystem handle this
 
@@ -907,6 +941,10 @@ export class GameScene extends Phaser.Scene {
 
   private handleMenuAction(): void {
     // Close any open menus in order of priority, or open keyboard config
+    if (this.chatUI.isOpen) {
+      this.chatUI.close();
+      return;
+    }
     if (this.dialogueBox.isOpen) {
       this.dialogueBox.handleInput('ESC');
       return;
