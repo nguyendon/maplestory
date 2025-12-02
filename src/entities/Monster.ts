@@ -39,6 +39,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   protected isInvincible: boolean = false;
   protected invincibilityTimer: number = 0;
   protected isDead: boolean = false;
+  protected respawnTimer: Phaser.Time.TimerEvent | null = null;
 
   // Health bar
   private healthBarBg!: Phaser.GameObjects.Graphics;
@@ -409,13 +410,19 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       y: this.y,
     });
 
-    // Respawn after timer
-    this.scene.time.delayedCall(this.definition.respawnTime, () => {
+    // Respawn after timer (store reference so we can cancel if destroyed)
+    this.respawnTimer = this.scene.time.delayedCall(this.definition.respawnTime, () => {
+      this.respawnTimer = null;
       this.respawn();
     });
   }
 
   public respawn(): void {
+    // Safety check - don't respawn if monster was destroyed (e.g., by network sync)
+    if (!this.body || !this.scene) {
+      return;
+    }
+
     this.setPosition(this.spawnX, this.spawnY);
     this.hp = this.maxHp;
     this.isDead = false;
@@ -441,6 +448,11 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   }
 
   destroy(fromScene?: boolean): void {
+    // Cancel respawn timer if pending
+    if (this.respawnTimer) {
+      this.respawnTimer.destroy();
+      this.respawnTimer = null;
+    }
     if (this.hurtbox) {
       this.hurtbox.destroy();
     }
