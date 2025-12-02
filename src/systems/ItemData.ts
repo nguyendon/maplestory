@@ -37,6 +37,7 @@ export interface StatBonuses {
   INT?: number;
   LUK?: number;
   ATK?: number;
+  MATK?: number;
   DEF?: number;
   HP?: number;
   MP?: number;

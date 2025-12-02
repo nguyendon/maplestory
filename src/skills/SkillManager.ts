@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { SkillDefinition } from './SkillData';
-import { SkillType } from './SkillData';
+import { SkillType, DamageType } from './SkillData';
 import { JobId } from '../systems/JobData';
 
 export interface ActiveBuff {
@@ -26,6 +26,7 @@ export class SkillManager extends Phaser.Events.EventEmitter {
   private playerLevel: () => number;
   private playerJob: () => JobId;
   private getATK: () => number;
+  private getMATK: () => number;
 
   constructor(
     scene: Phaser.Scene,
@@ -35,6 +36,7 @@ export class SkillManager extends Phaser.Events.EventEmitter {
       playerLevel: () => number;
       playerJob: () => JobId;
       getATK: () => number;
+      getMATK: () => number;
     }
   ) {
     super();
@@ -44,6 +46,7 @@ export class SkillManager extends Phaser.Events.EventEmitter {
     this.playerLevel = options.playerLevel;
     this.playerJob = options.playerJob;
     this.getATK = options.getATK;
+    this.getMATK = options.getMATK;
   }
 
   canUseSkill(skill: SkillDefinition): { canUse: boolean; reason?: string } {
@@ -99,8 +102,9 @@ export class SkillManager extends Phaser.Events.EventEmitter {
       return { success: true };
     }
 
-    // Calculate damage for attack skills
-    const baseDamage = this.getATK() * (skill.damage / 100);
+    // Calculate damage for attack skills based on damage type
+    const baseStat = skill.damageType === DamageType.MAGICAL ? this.getMATK() : this.getATK();
+    const baseDamage = baseStat * (skill.damage / 100);
     const variance = 0.9 + Math.random() * 0.2;
     const damage = Math.floor(baseDamage * variance);
 
