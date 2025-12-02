@@ -18,7 +18,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   // Name tag above player
   private nameText: Phaser.GameObjects.Text | null = null;
-  private playerName: string = '';
 
   // Jump mechanics
   private lastGroundedTime: number = 0;
@@ -132,8 +131,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Set the player's display name
    */
   setPlayerName(name: string): void {
-    this.playerName = name;
-
     if (!this.nameText) {
       this.nameText = this.scene.add.text(this.x, this.y - 40, name, {
         fontFamily: 'Arial',

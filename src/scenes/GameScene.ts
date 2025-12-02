@@ -1073,14 +1073,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMonsters(): void {
-    // If we're connecting to multiplayer, skip local monster creation
-    // Server will send monsters via network events
-    if (this.isMultiplayer) {
-      console.log('[GameScene] Skipping local monster spawn - using server monsters');
-      return;
-    }
-
-    // Create monsters from map data (offline mode)
+    // Always spawn monsters locally from map data
+    // In multiplayer, server can override with synced monsters later
+    // This ensures monsters appear immediately on map change
     for (const monsterData of this.currentMap.monsters) {
       const definition = getMonsterDefinition(monsterData.monsterId);
       if (!definition) continue;
@@ -1811,6 +1806,27 @@ export class GameScene extends Phaser.Scene {
       case 'night':
         this.drawNightSky(ctx);
         break;
+      case 'beach':
+        this.drawBeachSky(ctx);
+        break;
+      case 'snow':
+        this.drawSnowSky(ctx);
+        break;
+      case 'desert':
+        this.drawDesertSky(ctx);
+        break;
+      case 'urban':
+        this.drawUrbanSky(ctx);
+        break;
+      case 'sky':
+        this.drawSkySky(ctx);
+        break;
+      case 'lava':
+        this.drawLavaSky(ctx);
+        break;
+      case 'underwater':
+        this.drawUnderwaterSky(ctx);
+        break;
       default:
         this.drawFieldSky(ctx);
     }
@@ -1837,6 +1853,27 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'night':
         this.createNightDecorations();
+        break;
+      case 'beach':
+        this.createBeachDecorations();
+        break;
+      case 'snow':
+        this.createSnowDecorations();
+        break;
+      case 'desert':
+        this.createDesertDecorations();
+        break;
+      case 'urban':
+        this.createUrbanDecorations();
+        break;
+      case 'sky':
+        this.createSkyDecorations();
+        break;
+      case 'lava':
+        this.createLavaDecorations();
+        break;
+      case 'underwater':
+        this.createUnderwaterDecorations();
         break;
     }
   }
@@ -1952,6 +1989,197 @@ export class GameScene extends Phaser.Scene {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
+
+  private drawBeachSky(ctx: CanvasRenderingContext2D): void {
+    // Tropical beach sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#1e90ff');
+    gradient.addColorStop(0.4, '#87ceeb');
+    gradient.addColorStop(0.6, '#ffe4b5');
+    gradient.addColorStop(0.8, '#ffd700');
+    gradient.addColorStop(1, '#00bfff');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Sun
+    ctx.fillStyle = '#fff9c4';
+    ctx.beginPath();
+    ctx.arc(GAME_WIDTH - 200, 120, 60, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sun glow
+    const sunGlow = ctx.createRadialGradient(GAME_WIDTH - 200, 120, 60, GAME_WIDTH - 200, 120, 150);
+    sunGlow.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+    sunGlow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    ctx.fillStyle = sunGlow;
+    ctx.beginPath();
+    ctx.arc(GAME_WIDTH - 200, 120, 150, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawSnowSky(ctx: CanvasRenderingContext2D): void {
+    // Cold winter sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#4a5568');
+    gradient.addColorStop(0.3, '#718096');
+    gradient.addColorStop(0.6, '#a0aec0');
+    gradient.addColorStop(1, '#e2e8f0');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Falling snow particles (static for background)
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 100; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = Math.random() * GAME_HEIGHT;
+      const size = Math.random() * 3 + 1;
+      ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  private drawDesertSky(ctx: CanvasRenderingContext2D): void {
+    // Hot desert sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#f4a460');
+    gradient.addColorStop(0.3, '#ffa07a');
+    gradient.addColorStop(0.5, '#ffe4b5');
+    gradient.addColorStop(0.7, '#f5deb3');
+    gradient.addColorStop(1, '#d2b48c');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Blazing sun
+    ctx.fillStyle = '#fffaf0';
+    ctx.beginPath();
+    ctx.arc(GAME_WIDTH / 2, 80, 70, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Intense heat glow
+    const heatGlow = ctx.createRadialGradient(GAME_WIDTH / 2, 80, 70, GAME_WIDTH / 2, 80, 200);
+    heatGlow.addColorStop(0, 'rgba(255, 165, 0, 0.5)');
+    heatGlow.addColorStop(1, 'rgba(255, 165, 0, 0)');
+    ctx.fillStyle = heatGlow;
+    ctx.beginPath();
+    ctx.arc(GAME_WIDTH / 2, 80, 200, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawUrbanSky(ctx: CanvasRenderingContext2D): void {
+    // City night sky with light pollution
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.3, '#2d2d44');
+    gradient.addColorStop(0.6, '#3d3d5c');
+    gradient.addColorStop(1, '#4a4a6a');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Few dim stars (light pollution)
+    this.drawStars(ctx, 30, 0.3);
+
+    // City glow at horizon
+    const cityGlow = ctx.createLinearGradient(0, GAME_HEIGHT * 0.7, 0, GAME_HEIGHT);
+    cityGlow.addColorStop(0, 'rgba(255, 165, 0, 0)');
+    cityGlow.addColorStop(1, 'rgba(255, 165, 0, 0.2)');
+    ctx.fillStyle = cityGlow;
+    ctx.fillRect(0, GAME_HEIGHT * 0.7, GAME_WIDTH, GAME_HEIGHT * 0.3);
+  }
+
+  private drawSkySky(ctx: CanvasRenderingContext2D): void {
+    // High altitude sky (Orbis, floating islands)
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#e0f0ff');
+    gradient.addColorStop(0.3, '#b3d9ff');
+    gradient.addColorStop(0.6, '#87ceeb');
+    gradient.addColorStop(1, '#ffffff');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Fluffy clouds at bottom
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    for (let i = 0; i < 30; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = GAME_HEIGHT - 50 - Math.random() * 100;
+      const width = 100 + Math.random() * 200;
+      const height = 30 + Math.random() * 40;
+      ctx.beginPath();
+      ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  private drawLavaSky(ctx: CanvasRenderingContext2D): void {
+    // Volcanic/lava cave
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#1a0000');
+    gradient.addColorStop(0.3, '#330000');
+    gradient.addColorStop(0.5, '#4d0000');
+    gradient.addColorStop(0.7, '#801a00');
+    gradient.addColorStop(1, '#ff4500');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Lava glow from below
+    const lavaGlow = ctx.createLinearGradient(0, GAME_HEIGHT * 0.6, 0, GAME_HEIGHT);
+    lavaGlow.addColorStop(0, 'rgba(255, 69, 0, 0)');
+    lavaGlow.addColorStop(1, 'rgba(255, 69, 0, 0.4)');
+    ctx.fillStyle = lavaGlow;
+    ctx.fillRect(0, GAME_HEIGHT * 0.6, GAME_WIDTH, GAME_HEIGHT * 0.4);
+
+    // Ember particles
+    ctx.fillStyle = '#ff6600';
+    for (let i = 0; i < 50; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = GAME_HEIGHT * 0.5 + Math.random() * (GAME_HEIGHT * 0.5);
+      const size = Math.random() * 3 + 1;
+      ctx.globalAlpha = Math.random() * 0.6 + 0.2;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  private drawUnderwaterSky(ctx: CanvasRenderingContext2D): void {
+    // Deep underwater
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#001a33');
+    gradient.addColorStop(0.3, '#003366');
+    gradient.addColorStop(0.6, '#004080');
+    gradient.addColorStop(1, '#0066a6');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Light rays from above
+    ctx.globalAlpha = 0.1;
+    for (let i = 0; i < 8; i++) {
+      const x = 100 + i * 150;
+      ctx.fillStyle = '#66ccff';
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + 80, GAME_HEIGHT);
+      ctx.lineTo(x + 40, GAME_HEIGHT);
+      ctx.lineTo(x - 40, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Bubbles
+    ctx.fillStyle = 'rgba(173, 216, 230, 0.4)';
+    for (let i = 0; i < 40; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = Math.random() * GAME_HEIGHT;
+      const size = Math.random() * 6 + 2;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private createFieldDecorations(): void {
@@ -2099,6 +2327,439 @@ export class GameScene extends Phaser.Scene {
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
+      });
+    }
+  }
+
+  private createBeachDecorations(): void {
+    // Ocean waves at bottom
+    const waves = this.add.graphics();
+    waves.setDepth(-30);
+    this.backgroundObjects.push(waves);
+
+    waves.fillStyle(0x00bfff, 0.6);
+    for (let x = 0; x < GAME_WIDTH; x += 100) {
+      const waveY = GAME_HEIGHT - 80;
+      waves.fillEllipse(x + 50, waveY, 80, 20);
+    }
+
+    // Palm trees
+    const palmPositions = [100, 400, 800, 1100];
+    palmPositions.forEach(x => {
+      const palm = this.add.graphics();
+      palm.setDepth(-25);
+      this.backgroundObjects.push(palm);
+
+      // Trunk
+      palm.fillStyle(0x8b4513, 0.8);
+      palm.fillRect(x - 8, GAME_HEIGHT - 180, 16, 120);
+
+      // Leaves
+      palm.fillStyle(0x228b22, 0.9);
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        const leafX = x + Math.cos(angle) * 60;
+        const leafY = GAME_HEIGHT - 180 + Math.sin(angle) * 30 - 30;
+        palm.fillEllipse(leafX, leafY, 50, 15);
+      }
+    });
+
+    this.createCloudLayer();
+  }
+
+  private createSnowDecorations(): void {
+    // Snow-covered mountains
+    this.backgroundObjects.push(this.createMountainLayer(-80, 0x708090, 0.9));
+    this.backgroundObjects.push(this.createMountainLayer(-60, 0x87ceeb, 0.7));
+
+    // Snow caps on mountains
+    const snowCaps = this.add.graphics();
+    snowCaps.setDepth(-55);
+    snowCaps.fillStyle(0xffffff, 0.8);
+    for (let x = 0; x < GAME_WIDTH; x += 150) {
+      const peakY = 150 + Math.sin(x * 0.01) * 50;
+      snowCaps.fillTriangle(x - 30, peakY + 40, x, peakY, x + 30, peakY + 40);
+    }
+    this.backgroundObjects.push(snowCaps);
+
+    // Animated snowfall
+    for (let i = 0; i < 40; i++) {
+      const snowflake = this.add.graphics();
+      snowflake.setDepth(-5);
+      this.backgroundObjects.push(snowflake);
+
+      const startX = Math.random() * GAME_WIDTH;
+      const startY = Math.random() * GAME_HEIGHT;
+      snowflake.fillStyle(0xffffff, 0.8);
+      snowflake.fillCircle(0, 0, 2 + Math.random() * 2);
+      snowflake.setPosition(startX, startY);
+
+      this.tweens.add({
+        targets: snowflake,
+        y: GAME_HEIGHT + 20,
+        x: startX + (Math.random() - 0.5) * 100,
+        duration: 3000 + Math.random() * 3000,
+        repeat: -1,
+        onRepeat: () => {
+          snowflake.setPosition(Math.random() * GAME_WIDTH, -20);
+        }
+      });
+    }
+
+    // Evergreen trees
+    const treePositions = [80, 250, 500, 750, 950, 1150];
+    treePositions.forEach(x => {
+      const tree = this.add.graphics();
+      tree.setDepth(-20);
+      this.backgroundObjects.push(tree);
+
+      // Snow-covered pine tree
+      tree.fillStyle(0x2f4f4f, 0.9);
+      tree.fillTriangle(x - 40, GAME_HEIGHT - 100, x, GAME_HEIGHT - 200, x + 40, GAME_HEIGHT - 100);
+      tree.fillTriangle(x - 35, GAME_HEIGHT - 130, x, GAME_HEIGHT - 220, x + 35, GAME_HEIGHT - 130);
+      tree.fillTriangle(x - 30, GAME_HEIGHT - 160, x, GAME_HEIGHT - 240, x + 30, GAME_HEIGHT - 160);
+
+      // Snow on tree
+      tree.fillStyle(0xffffff, 0.7);
+      tree.fillTriangle(x - 25, GAME_HEIGHT - 165, x, GAME_HEIGHT - 200, x + 25, GAME_HEIGHT - 165);
+    });
+  }
+
+  private createDesertDecorations(): void {
+    // Sand dunes
+    const dunes = this.add.graphics();
+    dunes.setDepth(-40);
+    this.backgroundObjects.push(dunes);
+
+    dunes.fillStyle(0xd2b48c, 0.6);
+    for (let x = 0; x < GAME_WIDTH; x += 200) {
+      const duneY = GAME_HEIGHT - 150;
+      dunes.fillEllipse(x + 100, duneY, 150, 60);
+    }
+
+    // Cacti
+    const cactiPositions = [150, 450, 700, 1000];
+    cactiPositions.forEach(x => {
+      const cactus = this.add.graphics();
+      cactus.setDepth(-20);
+      this.backgroundObjects.push(cactus);
+
+      cactus.fillStyle(0x228b22, 0.9);
+      // Main body
+      cactus.fillRoundedRect(x - 10, GAME_HEIGHT - 160, 20, 100, 8);
+      // Arms
+      cactus.fillRoundedRect(x - 35, GAME_HEIGHT - 130, 30, 12, 4);
+      cactus.fillRoundedRect(x + 5, GAME_HEIGHT - 120, 30, 12, 4);
+      cactus.fillRoundedRect(x - 35, GAME_HEIGHT - 130, 12, -30, 4);
+      cactus.fillRoundedRect(x + 23, GAME_HEIGHT - 120, 12, -25, 4);
+    });
+
+    // Heat shimmer effect (subtle particles)
+    for (let i = 0; i < 15; i++) {
+      const shimmer = this.add.graphics();
+      shimmer.setDepth(-10);
+      this.backgroundObjects.push(shimmer);
+
+      const x = Math.random() * GAME_WIDTH;
+      const y = GAME_HEIGHT - 100 - Math.random() * 100;
+      shimmer.fillStyle(0xffffff, 0.2);
+      shimmer.fillRect(0, 0, 2, 20);
+      shimmer.setPosition(x, y);
+
+      this.tweens.add({
+        targets: shimmer,
+        y: y - 50,
+        alpha: 0,
+        duration: 2000 + Math.random() * 1000,
+        repeat: -1,
+        onRepeat: () => {
+          shimmer.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT - 100);
+          shimmer.setAlpha(0.2);
+        }
+      });
+    }
+  }
+
+  private createUrbanDecorations(): void {
+    // City buildings silhouette
+    const buildings = this.add.graphics();
+    buildings.setDepth(-40);
+    this.backgroundObjects.push(buildings);
+
+    const buildingData = [
+      { x: 0, w: 100, h: 250 },
+      { x: 120, w: 80, h: 180 },
+      { x: 220, w: 120, h: 300 },
+      { x: 360, w: 90, h: 220 },
+      { x: 470, w: 110, h: 350 },
+      { x: 600, w: 100, h: 200 },
+      { x: 720, w: 130, h: 280 },
+      { x: 870, w: 85, h: 240 },
+      { x: 970, w: 140, h: 320 },
+      { x: 1130, w: 100, h: 190 },
+    ];
+
+    buildingData.forEach(b => {
+      buildings.fillStyle(0x1a1a2e, 0.9);
+      buildings.fillRect(b.x, GAME_HEIGHT - 60 - b.h, b.w, b.h);
+
+      // Windows (lit)
+      for (let wy = GAME_HEIGHT - 60 - b.h + 20; wy < GAME_HEIGHT - 80; wy += 30) {
+        for (let wx = b.x + 10; wx < b.x + b.w - 10; wx += 20) {
+          if (Math.random() > 0.3) {
+            buildings.fillStyle(Math.random() > 0.5 ? 0xffff99 : 0xaaddff, 0.6);
+            buildings.fillRect(wx, wy, 10, 15);
+          }
+        }
+      }
+    });
+
+    // Street lights
+    for (let x = 80; x < GAME_WIDTH; x += 200) {
+      const light = this.add.graphics();
+      light.setDepth(-15);
+      this.backgroundObjects.push(light);
+
+      light.fillStyle(0x333333, 0.8);
+      light.fillRect(x - 3, GAME_HEIGHT - 150, 6, 90);
+      light.fillStyle(0xffcc00, 0.8);
+      light.fillCircle(x, GAME_HEIGHT - 155, 8);
+
+      // Light cone
+      light.fillStyle(0xffff99, 0.2);
+      light.fillTriangle(x - 30, GAME_HEIGHT - 60, x, GAME_HEIGHT - 145, x + 30, GAME_HEIGHT - 60);
+    }
+  }
+
+  private createSkyDecorations(): void {
+    // Floating islands
+    const islandPositions = [
+      { x: 150, y: 200, size: 80 },
+      { x: 400, y: 150, size: 100 },
+      { x: 700, y: 250, size: 70 },
+      { x: 950, y: 180, size: 90 },
+      { x: 1150, y: 220, size: 75 },
+    ];
+
+    islandPositions.forEach(island => {
+      const islandGraphic = this.add.graphics();
+      islandGraphic.setDepth(-30);
+      this.backgroundObjects.push(islandGraphic);
+
+      // Island bottom (rocky)
+      islandGraphic.fillStyle(0x8b7355, 0.8);
+      islandGraphic.fillEllipse(island.x, island.y, island.size, island.size * 0.4);
+
+      // Grass top
+      islandGraphic.fillStyle(0x90ee90, 0.9);
+      islandGraphic.fillEllipse(island.x, island.y - 10, island.size * 0.9, island.size * 0.25);
+
+      // Small tree on some islands
+      if (Math.random() > 0.4) {
+        islandGraphic.fillStyle(0x228b22, 0.9);
+        islandGraphic.fillCircle(island.x, island.y - 35, 20);
+        islandGraphic.fillStyle(0x8b4513, 0.8);
+        islandGraphic.fillRect(island.x - 3, island.y - 25, 6, 20);
+      }
+
+      // Float animation
+      this.tweens.add({
+        targets: islandGraphic,
+        y: '+=' + (10 + Math.random() * 10),
+        duration: 3000 + Math.random() * 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    });
+
+    // Big fluffy clouds
+    this.createCloudLayer();
+
+    // Rainbow (optional, appears sometimes)
+    if (Math.random() > 0.5) {
+      const rainbow = this.add.graphics();
+      rainbow.setDepth(-45);
+      this.backgroundObjects.push(rainbow);
+
+      const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+      colors.forEach((color, i) => {
+        rainbow.lineStyle(8, color, 0.3);
+        rainbow.beginPath();
+        rainbow.arc(GAME_WIDTH / 2, GAME_HEIGHT, 400 - i * 12, Math.PI, 0, true);
+        rainbow.strokePath();
+      });
+    }
+  }
+
+  private createLavaDecorations(): void {
+    // Lava pools at bottom
+    const lavaPool = this.add.graphics();
+    lavaPool.setDepth(-25);
+    this.backgroundObjects.push(lavaPool);
+
+    lavaPool.fillStyle(0xff4500, 0.8);
+    for (let x = 0; x < GAME_WIDTH; x += 150) {
+      lavaPool.fillEllipse(x + 75, GAME_HEIGHT - 50, 100, 30);
+    }
+
+    // Lava bubbles animation
+    for (let i = 0; i < 20; i++) {
+      const bubble = this.add.graphics();
+      bubble.setDepth(-20);
+      this.backgroundObjects.push(bubble);
+
+      const startX = Math.random() * GAME_WIDTH;
+      bubble.fillStyle(0xff6600, 0.7);
+      bubble.fillCircle(0, 0, 5 + Math.random() * 5);
+      bubble.setPosition(startX, GAME_HEIGHT - 60);
+
+      this.tweens.add({
+        targets: bubble,
+        y: GAME_HEIGHT - 100 - Math.random() * 50,
+        alpha: 0,
+        scale: 1.5,
+        duration: 1000 + Math.random() * 1500,
+        repeat: -1,
+        delay: Math.random() * 2000,
+        onRepeat: () => {
+          bubble.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT - 60);
+          bubble.setAlpha(0.7);
+          bubble.setScale(1);
+        }
+      });
+    }
+
+    // Dark rocky formations
+    const rocks = this.add.graphics();
+    rocks.setDepth(-35);
+    this.backgroundObjects.push(rocks);
+
+    rocks.fillStyle(0x2d2d2d, 0.9);
+    for (let x = 0; x < GAME_WIDTH; x += 250) {
+      const height = 100 + Math.random() * 100;
+      rocks.fillTriangle(x, GAME_HEIGHT - 60, x + 60, GAME_HEIGHT - 60 - height, x + 120, GAME_HEIGHT - 60);
+    }
+
+    // Ember particles floating up
+    for (let i = 0; i < 25; i++) {
+      const ember = this.add.graphics();
+      ember.setDepth(-5);
+      this.backgroundObjects.push(ember);
+
+      ember.fillStyle(0xff9900, 0.8);
+      ember.fillCircle(0, 0, 2);
+      ember.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT);
+
+      this.tweens.add({
+        targets: ember,
+        y: -20,
+        x: '+=' + ((Math.random() - 0.5) * 100),
+        alpha: 0,
+        duration: 4000 + Math.random() * 3000,
+        repeat: -1,
+        onRepeat: () => {
+          ember.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT);
+          ember.setAlpha(0.8);
+        }
+      });
+    }
+  }
+
+  private createUnderwaterDecorations(): void {
+    // Seaweed
+    const seaweedPositions = [50, 200, 400, 600, 850, 1050, 1200];
+    seaweedPositions.forEach(x => {
+      const seaweed = this.add.graphics();
+      seaweed.setDepth(-25);
+      this.backgroundObjects.push(seaweed);
+
+      seaweed.fillStyle(0x228b22, 0.7);
+      for (let i = 0; i < 3; i++) {
+        const offsetX = x + (i - 1) * 15;
+        const height = 80 + Math.random() * 60;
+        seaweed.fillRoundedRect(offsetX - 4, GAME_HEIGHT - 60 - height, 8, height, 4);
+      }
+
+      // Sway animation
+      this.tweens.add({
+        targets: seaweed,
+        x: '+=' + 10,
+        duration: 2000 + Math.random() * 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    });
+
+    // Coral formations
+    const coralPositions = [100, 350, 550, 800, 1000];
+    coralPositions.forEach(x => {
+      const coral = this.add.graphics();
+      coral.setDepth(-30);
+      this.backgroundObjects.push(coral);
+
+      const colors = [0xff6b6b, 0xffa07a, 0xff69b4, 0xffd700];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      coral.fillStyle(color, 0.7);
+      // Branching coral shape
+      for (let branch = 0; branch < 5; branch++) {
+        const branchX = x + (branch - 2) * 20;
+        const height = 40 + Math.random() * 40;
+        coral.fillRoundedRect(branchX - 5, GAME_HEIGHT - 70 - height, 10, height, 5);
+        coral.fillCircle(branchX, GAME_HEIGHT - 70 - height, 8);
+      }
+    });
+
+    // Animated bubbles rising
+    for (let i = 0; i < 30; i++) {
+      const bubble = this.add.graphics();
+      bubble.setDepth(-10);
+      this.backgroundObjects.push(bubble);
+
+      const size = 3 + Math.random() * 6;
+      bubble.lineStyle(1, 0xadd8e6, 0.6);
+      bubble.strokeCircle(0, 0, size);
+      bubble.fillStyle(0xadd8e6, 0.2);
+      bubble.fillCircle(0, 0, size);
+
+      bubble.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT + 20);
+
+      this.tweens.add({
+        targets: bubble,
+        y: -30,
+        x: '+=' + ((Math.random() - 0.5) * 50),
+        duration: 5000 + Math.random() * 5000,
+        repeat: -1,
+        delay: Math.random() * 3000,
+        onRepeat: () => {
+          bubble.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT + 20);
+        }
+      });
+    }
+
+    // Fish silhouettes (simple)
+    for (let i = 0; i < 8; i++) {
+      const fish = this.add.graphics();
+      fish.setDepth(-15);
+      this.backgroundObjects.push(fish);
+
+      fish.fillStyle(0x4169e1, 0.5);
+      fish.fillEllipse(0, 0, 20, 8);
+      fish.fillTriangle(-15, 0, -25, -8, -25, 8);
+
+      const startX = Math.random() * GAME_WIDTH;
+      const startY = 150 + Math.random() * 300;
+      fish.setPosition(startX, startY);
+
+      this.tweens.add({
+        targets: fish,
+        x: GAME_WIDTH + 50,
+        duration: 8000 + Math.random() * 5000,
+        repeat: -1,
+        onRepeat: () => {
+          fish.setPosition(-50, 150 + Math.random() * 300);
+        }
       });
     }
   }

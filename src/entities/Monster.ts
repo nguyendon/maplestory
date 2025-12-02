@@ -22,6 +22,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   public networkId: string = ''; // For multiplayer sync
 
   protected definition: MonsterDefinition;
+  protected actualSpriteKey: string; // The actual sprite key used (may differ from definition if fallback)
   protected hurtbox!: Hurtbox;
   protected currentState: MonsterState = 'IDLE';
   protected spawnX: number;
@@ -55,10 +56,15 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     type: string,
     definition: MonsterDefinition
   ) {
-    super(scene, x, y, definition.spriteKey);
+    // Use sprite key with fallback to 'slime' if texture doesn't exist
+    const textureKey = scene.textures.exists(definition.spriteKey)
+      ? definition.spriteKey
+      : 'slime';
+    super(scene, x, y, textureKey);
 
     this.monsterType = type;
     this.definition = definition;
+    this.actualSpriteKey = textureKey; // Store actual texture for animations
     this.spawnX = x;
     this.spawnY = y;
 
@@ -231,7 +237,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   }
 
   protected playAnim(type: string): void {
-    const animKey = `${this.definition.spriteKey}-${type}`;
+    const animKey = `${this.actualSpriteKey}-${type}`;
     if (this.anims.exists(animKey) && this.anims.currentAnim?.key !== animKey) {
       this.play(animKey, true);
     }
