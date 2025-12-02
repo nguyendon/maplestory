@@ -791,6 +791,7 @@ export class GameScene extends Phaser.Scene {
         'Comma': 'COMMA',
         'Period': 'PERIOD',
         'Slash': 'FORWARD_SLASH',
+        'Enter': 'ENTER',
       };
       return specialMapping[event.code] || event.code.toUpperCase();
     }

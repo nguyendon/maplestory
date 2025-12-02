@@ -255,6 +255,7 @@ export class ChatUI {
   private submitInput(): void {
     const input = this.inputValue.trim();
     if (!input) {
+      // Only close on empty input - user pressed Enter with nothing typed
       this.close();
       return;
     }
@@ -281,7 +282,11 @@ export class ChatUI {
       this.addMessage(input, UI_COLORS.textWhite);
     }
 
-    this.close();
+    // Clear input but keep chat open - user can press ESC to close
+    this.inputValue = '';
+    this.cursorPosition = 0;
+    this.historyIndex = -1;
+    this.updateInputDisplay();
   }
 
   private updateInputDisplay(): void {

@@ -75,21 +75,71 @@ A 2D side-scrolling MMORPG clone inspired by MapleStory, built with modern web t
 - [x] Cooldown management
 - [x] MP/resource costs
 
-### Phase 8: Multiplayer (Optional)
-- [ ] Server architecture with Colyseus
-- [ ] Player synchronization
+### Phase 8: Multiplayer
+- [x] Server architecture with Colyseus
+- [x] Player synchronization
 - [ ] Server-authoritative movement
-- [ ] Chat system
+- [ ] Chat system (UI + server)
 - [ ] Party system
 - [ ] Trading system
 
-### Phase 9: Polish & Content
+### Phase 9: User Accounts & Cloud Save
+- [ ] PostgreSQL database setup
+- [ ] User registration/login (bcrypt + JWT)
+- [ ] Server storage provider for SaveManager
+- [ ] Login/Register UI in game
+- [ ] Character selection screen (multiple characters per account)
+
+### Phase 10: Deployment & Infrastructure
+**Frontend (Static)**
+- [ ] Vercel deployment config
+- [ ] Environment variables for server URL
+- [ ] Production build optimization
+
+**Backend (Game Server)**
+- [ ] Railway/Fly.io deployment config
+- [ ] Dockerfile for server
+- [ ] PostgreSQL add-on setup
+- [ ] Redis for sessions (optional)
+- [ ] CORS configuration for production
+- [ ] WebSocket SSL (wss://)
+
+**Database Schema**
+```sql
+-- Users table
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Characters table (multiple per user)
+CREATE TABLE characters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  name VARCHAR(32) NOT NULL,
+  save_data JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Sessions table (optional, can use Redis)
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  token VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP NOT NULL
+);
+```
+
+### Phase 11: Polish & Content
 - [ ] UI/UX improvements
 - [ ] Sound effects and music
 - [ ] Tutorial system
 - [ ] Quest system
 - [ ] Achievements
-- [ ] Save/load system
+- [x] Save/load system (localStorage - done)
 
 ---
 

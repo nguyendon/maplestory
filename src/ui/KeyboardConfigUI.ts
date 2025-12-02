@@ -152,13 +152,13 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
     });
     this.add(sectionLabel);
 
-    // Keyboard rows - compact QWERTY layout
+    // Keyboard rows - full QWERTY layout with punctuation
     const rows = [
-      { keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], codes: ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0 },
-      { keys: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], codes: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.25 },
-      { keys: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], codes: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.5 },
-      { keys: ['Z', 'X', 'C', 'V', 'B', 'N', 'M'], codes: ['Z', 'X', 'C', 'V', 'B', 'N', 'M'], widths: [1, 1, 1, 1, 1, 1, 1], offset: 0.9 },
-      { keys: ['Tab', 'Space'], codes: ['TAB', 'SPACE'], widths: [1.3, 3.5], offset: 1.5 }
+      { keys: ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='], codes: ['BACKTICK', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO', 'MINUS', 'PLUS'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0 },
+      { keys: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\'], codes: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'OPEN_BRACKET', 'CLOSED_BRACKET', 'BACK_SLASH'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.25 },
+      { keys: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'"], codes: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'SEMICOLON', 'QUOTES'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.5 },
+      { keys: ['Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/'], codes: ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'COMMA', 'PERIOD', 'FORWARD_SLASH'], widths: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], offset: 0.9 },
+      { keys: ['Tab', 'Space', 'Ent'], codes: ['TAB', 'SPACE', 'ENTER'], widths: [1.3, 4, 1.3], offset: 1.2 }
     ];
 
     const keyboardWidth = 10 * (this.KEY_SIZE + this.KEY_SPACING);
