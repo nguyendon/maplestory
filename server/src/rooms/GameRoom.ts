@@ -18,15 +18,62 @@ interface JoinOptions {
   mapId?: string;
 }
 
+// Monster spawn configuration (mirrors client-side MapData)
+interface MonsterSpawnConfig {
+  x: number;
+  y: number;
+  monsterId: string;
+  maxHp: number;
+  respawnTime: number;
+}
+
+// Game constants (must match client)
+const GAME_HEIGHT = 720;
+
+// Map spawn positions (must match client MapData)
+// GAME_HEIGHT = 720, so y = 720 - 96 = 624
+const MAP_SPAWNS: Record<string, { x: number; y: number }> = {
+  henesys_town: { x: 640, y: 624 },
+  henesys_field: { x: 100, y: 624 },
+  hunting_ground_1: { x: 100, y: 624 },
+  hunting_ground_2: { x: 1180, y: 624 },
+};
+
+// Map configurations with monster spawns
+const MAP_MONSTERS: Record<string, MonsterSpawnConfig[]> = {
+  henesys_field: [
+    { x: 400, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+    { x: 650, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+    { x: 900, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+    { x: 1100, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+  ],
+  hunting_ground_1: [
+    { x: 400, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+    { x: 650, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+    { x: 900, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+    { x: 1100, y: GAME_HEIGHT - 100, monsterId: 'SLIME', maxHp: 50, respawnTime: 5000 },
+  ],
+  hunting_ground_2: [
+    { x: 300, y: GAME_HEIGHT - 100, monsterId: 'SNAIL', maxHp: 30, respawnTime: 4000 },
+    { x: 600, y: GAME_HEIGHT - 100, monsterId: 'SNAIL', maxHp: 30, respawnTime: 4000 },
+    { x: 1100, y: GAME_HEIGHT - 100, monsterId: 'SNAIL', maxHp: 30, respawnTime: 4000 },
+  ],
+};
+
 export class GameRoom extends Room<GameRoomState> {
   maxClients = 50;
   private tickRate = 20; // 20 updates per second
+  private monsterIdCounter = 0;
+  private monsterSpawnConfigs: Map<string, MonsterSpawnConfig> = new Map(); // Track spawn points for respawn
 
   onCreate(options: any) {
     console.log('GameRoom created!', options);
 
     this.setState(new GameRoomState());
-    this.state.mapId = options.mapId || 'maple_island';
+    this.state.mapId = options.mapId || 'henesys_field';
+
+    // Spawn initial monsters for this map
+    this.spawnMonstersForMap(this.state.mapId);
 
     // Set up game loop
     this.setSimulationInterval((deltaTime) => this.update(deltaTime), 1000 / this.tickRate);
@@ -69,7 +116,7 @@ export class GameRoom extends Room<GameRoomState> {
     // Handle damage to monsters
     this.onMessage('damageMonster', (client, data: { monsterId: string; damage: number; isCritical: boolean }) => {
       const monster = this.state.monsters.get(data.monsterId);
-      if (monster) {
+      if (monster && monster.hp > 0) {
         monster.hp -= data.damage;
 
         // Broadcast damage event
@@ -77,22 +124,34 @@ export class GameRoom extends Room<GameRoomState> {
           monsterId: data.monsterId,
           damage: data.damage,
           isCritical: data.isCritical,
+          currentHp: monster.hp,
           x: monster.x,
           y: monster.y,
           attackerId: client.sessionId,
         });
 
         if (monster.hp <= 0) {
+          const spawnConfig = this.monsterSpawnConfigs.get(data.monsterId);
+
           this.broadcast('monsterDeath', {
             monsterId: data.monsterId,
+            monsterType: monster.type,
             x: monster.x,
             y: monster.y,
             killerId: client.sessionId,
           });
+
           // Remove monster after death animation
           this.clock.setTimeout(() => {
             this.state.monsters.delete(data.monsterId);
           }, 1000);
+
+          // Schedule respawn if we have spawn config
+          if (spawnConfig) {
+            this.clock.setTimeout(() => {
+              this.spawnMonster(spawnConfig, data.monsterId);
+            }, spawnConfig.respawnTime);
+          }
         }
       }
     });
@@ -158,12 +217,17 @@ export class GameRoom extends Room<GameRoomState> {
   onJoin(client: Client, options: JoinOptions) {
     console.log(`Player ${client.sessionId} joined!`, options);
 
+    const mapId = options.mapId || this.state.mapId;
+    const spawn = MAP_SPAWNS[mapId] || { x: 400, y: GAME_HEIGHT - 96 };
+
     const player = new Player();
     player.id = client.sessionId;
     player.name = options.name || `Player${Math.floor(Math.random() * 1000)}`;
-    player.mapId = options.mapId || this.state.mapId;
-    player.x = 400;
-    player.y = 300;
+    player.mapId = mapId;
+    player.x = spawn.x;
+    player.y = spawn.y;
+
+    console.log(`Player spawned at (${player.x}, ${player.y}) on map ${mapId}`);
 
     this.state.players.set(client.sessionId, player);
 
@@ -203,5 +267,38 @@ export class GameRoom extends Room<GameRoomState> {
 
   onDispose() {
     console.log('GameRoom disposed');
+  }
+
+  /**
+   * Spawn all monsters for a specific map
+   */
+  private spawnMonstersForMap(mapId: string): void {
+    const spawns = MAP_MONSTERS[mapId] || [];
+    console.log(`Spawning ${spawns.length} monsters for map: ${mapId}`);
+
+    for (const spawnConfig of spawns) {
+      const monsterId = `monster_${this.monsterIdCounter++}`;
+      this.spawnMonster(spawnConfig, monsterId);
+    }
+  }
+
+  /**
+   * Spawn a single monster
+   */
+  private spawnMonster(config: MonsterSpawnConfig, monsterId: string): void {
+    const monster = new Monster();
+    monster.id = monsterId;
+    monster.type = config.monsterId;
+    monster.x = config.x;
+    monster.y = config.y;
+    monster.hp = config.maxHp;
+    monster.maxHp = config.maxHp;
+    monster.state = 'IDLE';
+    monster.facingRight = Math.random() > 0.5;
+
+    this.state.monsters.set(monsterId, monster);
+    this.monsterSpawnConfigs.set(monsterId, config);
+
+    console.log(`Spawned monster ${monsterId} (${config.monsterId}) at (${config.x}, ${config.y})`);
   }
 }
