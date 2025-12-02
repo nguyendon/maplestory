@@ -67,10 +67,10 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
   private selectedBinding: BindingType | null = null;
   private selectedBindingButton: Phaser.GameObjects.Container | null = null;
 
-  private readonly PANEL_WIDTH = 620;
-  private readonly PANEL_HEIGHT = 480;
-  private readonly KEY_SIZE = 36;
-  private readonly KEY_SPACING = 3;
+  private readonly PANEL_WIDTH = 660;
+  private readonly PANEL_HEIGHT = 500;
+  private readonly KEY_SIZE = 32;
+  private readonly KEY_SPACING = 2;
 
   public isOpen: boolean = false;
 
@@ -161,7 +161,8 @@ export class KeyboardConfigUI extends Phaser.GameObjects.Container {
       { keys: ['Tab', 'Space', 'Ent'], codes: ['TAB', 'SPACE', 'ENTER'], widths: [1.3, 4, 1.3], offset: 1.2 }
     ];
 
-    const keyboardWidth = 10 * (this.KEY_SIZE + this.KEY_SPACING);
+    // 13 keys in top row = 13 * (32 + 2) - 2 = 440px
+    const keyboardWidth = 13 * (this.KEY_SIZE + this.KEY_SPACING) - this.KEY_SPACING;
     const startX = -keyboardWidth / 2;
     const keyStartY = startY + 18;
 
