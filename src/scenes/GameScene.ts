@@ -35,7 +35,7 @@ import { getDefaultMap, getMap, MAPS, type MapDefinition, type BackgroundTheme }
 import { JobId, getJob } from '../systems/JobData';
 import { getSkillsForJobAndLevel } from '../skills/SkillData';
 import { networkManager } from '../network/NetworkManager';
-import type { NetworkPlayer } from '../network/NetworkManager';
+import type { NetworkPlayer, NetworkMonster } from '../network/NetworkManager';
 import { RemotePlayer } from '../entities/RemotePlayer';
 
 export class GameScene extends Phaser.Scene {
@@ -334,6 +334,9 @@ export class GameScene extends Phaser.Scene {
       console.log('Connected to multiplayer server');
       this.showNotification('Connected to server!');
 
+      // Set player name tag
+      this.player.setPlayerName(networkManager.name);
+
       // Send initial stats
       const jobDef = this.playerStats.getJobDefinition();
       networkManager.sendStatsUpdate(
@@ -359,8 +362,12 @@ export class GameScene extends Phaser.Scene {
     });
 
     networkManager.on('playerJoined', (player: NetworkPlayer) => {
+      console.log(`[GameScene] playerJoined event - player: ${player.name}, mapId: ${player.mapId}, currentMap: ${this.currentMap.id}`);
       if (player.mapId === this.currentMap.id) {
+        console.log(`[GameScene] Adding remote player: ${player.name}`);
         this.addRemotePlayer(player);
+      } else {
+        console.log(`[GameScene] Skipping - different map (${player.mapId} vs ${this.currentMap.id})`);
       }
     });
 
@@ -407,17 +414,36 @@ export class GameScene extends Phaser.Scene {
       this.showChatMessage(message.playerName, message.message);
     });
 
+    // Monster sync events
+    networkManager.on('monsterAdded', (data: NetworkMonster) => {
+      console.log(`[Network] Monster added: ${data.id}, type: ${data.type}`);
+      this.handleNetworkMonsterAdded(data);
+    });
+
+    networkManager.on('monsterUpdated', (data: NetworkMonster) => {
+      this.handleNetworkMonsterUpdated(data);
+    });
+
+    networkManager.on('monsterRemoved', (data: NetworkMonster) => {
+      console.log(`[Network] Monster removed: ${data.id}`);
+      this.handleNetworkMonsterRemoved(data);
+    });
+
     // Try to connect to server
     const playerName = `Player${Math.floor(Math.random() * 9999)}`;
     networkManager.connect(playerName, this.currentMap.id);
   }
 
   private addRemotePlayer(data: NetworkPlayer): void {
-    if (this.remotePlayers.has(data.id)) return;
+    if (this.remotePlayers.has(data.id)) {
+      console.log(`[GameScene] Remote player already exists: ${data.name}`);
+      return;
+    }
 
+    console.log(`[GameScene] Creating RemotePlayer: ${data.name} at (${data.x}, ${data.y})`);
     const remotePlayer = new RemotePlayer(this, data);
     this.remotePlayers.set(data.id, remotePlayer);
-    console.log(`Added remote player: ${data.name}`);
+    console.log(`[GameScene] Added remote player: ${data.name}, total: ${this.remotePlayers.size}`);
   }
 
   private showNotification(message: string): void {
@@ -446,6 +472,76 @@ export class GameScene extends Phaser.Scene {
     // For now, just show as notification
     // Could implement a proper chat UI later
     this.showNotification(`${playerName}: ${message}`);
+  }
+
+  private handleNetworkMonsterAdded(data: NetworkMonster): void {
+    // Check if we already have this monster
+    const existingMonster = this.monsters.find(m => m.networkId === data.id);
+    if (existingMonster) return;
+
+    // If this is the first network monster, clear any locally spawned monsters
+    // (they were created before we connected to the server)
+    if (this.monsters.length > 0 && !this.monsters[0].networkId) {
+      console.log('[GameScene] Clearing locally spawned monsters for server-synced monsters');
+      this.clearMonsters();
+    }
+
+    // Create the monster using the type from server
+    const definition = getMonsterDefinition(data.type);
+    if (!definition) {
+      console.warn(`Unknown monster type from server: ${data.type}`);
+      return;
+    }
+
+    const monster = new Monster(
+      this,
+      data.x,
+      data.y,
+      data.type,
+      definition
+    );
+    monster.networkId = data.id;
+    monster.setTarget(this.player);
+    monster.syncHP(data.hp);
+    this.monsters.push(monster);
+
+    // Add collision with platforms
+    const collider = this.physics.add.collider(monster, this.platforms);
+    this.monsterColliders.push(collider);
+
+    // Register hurtbox with combat manager
+    this.combatManager.registerHurtbox(monster.getHurtbox());
+  }
+
+  private clearMonsters(): void {
+    // Clear all monster colliders
+    for (const collider of this.monsterColliders) {
+      collider.destroy();
+    }
+    this.monsterColliders = [];
+
+    // Destroy all monsters
+    for (const monster of this.monsters) {
+      monster.destroy();
+    }
+    this.monsters = [];
+  }
+
+  private handleNetworkMonsterUpdated(data: NetworkMonster): void {
+    const monster = this.monsters.find(m => m.networkId === data.id);
+    if (monster) {
+      // Sync HP from server
+      monster.syncHP(data.hp);
+    }
+  }
+
+  private handleNetworkMonsterRemoved(data: NetworkMonster): void {
+    const monsterIndex = this.monsters.findIndex(m => m.networkId === data.id);
+    if (monsterIndex !== -1) {
+      const monster = this.monsters[monsterIndex];
+      monster.destroy();
+      this.monsters.splice(monsterIndex, 1);
+    }
   }
 
   /**
@@ -869,7 +965,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMonsters(): void {
-    // Create monsters from map data
+    // If we're connecting to multiplayer, skip local monster creation
+    // Server will send monsters via network events
+    if (this.isMultiplayer) {
+      console.log('[GameScene] Skipping local monster spawn - using server monsters');
+      return;
+    }
+
+    // Create monsters from map data (offline mode)
     for (const monsterData of this.currentMap.monsters) {
       const definition = getMonsterDefinition(monsterData.monsterId);
       if (!definition) continue;
@@ -901,9 +1004,18 @@ export class GameScene extends Phaser.Scene {
     this.effectsManager.showHitEffect(data.x, data.y, HitEffectType.PHYSICAL);
   }
 
-  private onMonsterDamaged(_data: { monster: Monster; damage: number; x: number; y: number }): void {
+  private onMonsterDamaged(data: { monster: Monster; damage: number; x: number; y: number; isCritical?: boolean }): void {
     // Additional effects for monster damage
     this.cameras.main.shake(50, 0.002);
+
+    // Send damage to server for sync
+    if (this.isMultiplayer && networkManager.isConnected && data.monster.networkId) {
+      networkManager.sendMonsterDamage(
+        data.monster.networkId,
+        data.damage,
+        data.isCritical || false
+      );
+    }
   }
 
   private onMonsterDeath(data: { monster: Monster; exp: number; x: number; y: number }): void {
