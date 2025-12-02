@@ -19,6 +19,7 @@ export interface CharacterStatsData {
   exp: number;
   baseStats: BaseStats;
   unassignedAP: number;
+  unassignedSP: number;
   currentHP?: number;
   currentMP?: number;
   job?: JobId;
@@ -31,6 +32,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   private _level: number = 1;
   private _exp: number = 0;
   private _unassignedAP: number = 0;
+  private _unassignedSP: number = 0;
   private _job: JobId = JobId.BEGINNER;
 
   private _baseStats: BaseStats = {
@@ -45,6 +47,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
 
   private static readonly MAX_LEVEL = 200;
   private static readonly AP_PER_LEVEL = 5;
+  private static readonly SP_PER_LEVEL = 3;
   private static readonly MAX_CRIT_RATE = 50;
   private static readonly MP_REGEN_INTERVAL = 3000; // Regen every 3 seconds
   private static readonly MP_REGEN_AMOUNT = 2; // Base MP regen per tick
@@ -69,6 +72,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
   get level(): number { return this._level; }
   get exp(): number { return this._exp; }
   get unassignedAP(): number { return this._unassignedAP; }
+  get unassignedSP(): number { return this._unassignedSP; }
   get currentHP(): number { return this._currentHP; }
   get currentMP(): number { return this._currentMP; }
   get STR(): number { return this._baseStats.STR; }
@@ -188,6 +192,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
 
     this._level++;
     this._unassignedAP += PlayerStats.AP_PER_LEVEL;
+    this._unassignedSP += PlayerStats.SP_PER_LEVEL;
 
     // Fully restore HP and MP on level up
     this._currentHP = this.getMaxHP();
@@ -196,6 +201,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
     this.emit('levelUp', {
       newLevel: this._level,
       apGained: PlayerStats.AP_PER_LEVEL,
+      spGained: PlayerStats.SP_PER_LEVEL,
       newMaxHP: this.getMaxHP(),
       newMaxMP: this.getMaxMP()
     });
@@ -215,6 +221,19 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
     this.emit('statIncreased', { stat, newValue: this._baseStats[stat] });
     this.emit('statsChanged');
     return true;
+  }
+
+  // SP System
+  useSP(amount: number = 1): boolean {
+    if (this._unassignedSP < amount) return false;
+    this._unassignedSP -= amount;
+    this.emit('spChanged', this._unassignedSP);
+    return true;
+  }
+
+  addSP(amount: number): void {
+    this._unassignedSP += amount;
+    this.emit('spChanged', this._unassignedSP);
   }
 
   // HP/MP Management
@@ -285,6 +304,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
       exp: this._exp,
       baseStats: { ...this._baseStats },
       unassignedAP: this._unassignedAP,
+      unassignedSP: this._unassignedSP,
       currentHP: this._currentHP,
       currentMP: this._currentMP,
       job: this._job
@@ -296,6 +316,7 @@ export class PlayerStats extends Phaser.Events.EventEmitter {
     this._exp = data.exp;
     this._baseStats = { ...data.baseStats };
     this._unassignedAP = data.unassignedAP;
+    this._unassignedSP = data.unassignedSP ?? 0;
     this._job = data.job ?? JobId.BEGINNER;
     this._currentHP = data.currentHP ?? this.getMaxHP();
     this._currentMP = data.currentMP ?? this.getMaxMP();
