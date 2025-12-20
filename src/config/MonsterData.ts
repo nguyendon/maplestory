@@ -53,7 +53,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
 
   MUSHROOM: {
     name: 'Orange Mushroom',
-    spriteKey: 'mushroom',
+    spriteKey: 'orange_mushroom',
     width: 36,
     height: 40,
     maxHp: 80,
@@ -75,7 +75,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
   },
 
   SNAIL: {
-    name: 'Red Snail',
+    name: 'Snail',
     spriteKey: 'snail',
     width: 40,
     height: 28,
@@ -119,7 +119,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
 
   RIBBON_PIG: {
     name: 'Ribbon Pig',
-    spriteKey: 'pig',
+    spriteKey: 'ribbon_pig',
     width: 48,
     height: 36,
     maxHp: 100,
@@ -141,7 +141,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
 
   BLUE_MUSHROOM: {
     name: 'Blue Mushroom',
-    spriteKey: 'mushroom', // Uses orange mushroom as base with tint
+    spriteKey: 'blue_mushroom',
     width: 36,
     height: 40,
     maxHp: 150,
@@ -507,7 +507,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
   // Sleepywood / Ant Tunnel
   HORNY_MUSHROOM: {
     name: 'Horny Mushroom',
-    spriteKey: 'mushroom', // Uses mushroom as base
+    spriteKey: 'horny_mushroom',
     width: 44,
     height: 48,
     maxHp: 450,
@@ -528,7 +528,7 @@ export const MONSTER_TYPES: Record<string, MonsterDefinition> = {
 
   ZOMBIE_MUSHROOM: {
     name: 'Zombie Mushroom',
-    spriteKey: 'mushroom', // Uses mushroom with green tint
+    spriteKey: 'zombie_mushroom',
     width: 44,
     height: 48,
     maxHp: 550,

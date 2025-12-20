@@ -1,0 +1,121 @@
+{
+  "orange_mushroom": {
+    "frameWidth": 64,
+    "frameHeight": 72,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "blue_mushroom": {
+    "frameWidth": 66,
+    "frameHeight": 74,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "horny_mushroom": {
+    "frameWidth": 72,
+    "frameHeight": 62,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "zombie_mushroom": {
+    "frameWidth": 68,
+    "frameHeight": 78,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "pig": {
+    "frameWidth": 84,
+    "frameHeight": 62,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "ribbon_pig": {
+    "frameWidth": 84,
+    "frameHeight": 66,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "snail": {
+    "frameWidth": 54,
+    "frameHeight": 42,
+    "numFrames": 6,
+    "animations": {
+      "idle": [
+        0,
+        1,
+        2
+      ],
+      "move": [
+        3,
+        4,
+        5
+      ]
+    }
+  }
+}

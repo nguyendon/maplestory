@@ -8,7 +8,29 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     this.showLoadingScreen();
+    this.loadMonsterSprites();
     this.createPlaceholderTextures();
+  }
+
+  private loadMonsterSprites(): void {
+    // Load animated monster sprite sheets
+    // Each sprite has: frameWidth, frameHeight, 6 frames (3 idle + 3 move)
+    const monsterSheets: Record<string, { frameWidth: number; frameHeight: number }> = {
+      'orange_mushroom': { frameWidth: 64, frameHeight: 72 },
+      'blue_mushroom': { frameWidth: 66, frameHeight: 74 },
+      'horny_mushroom': { frameWidth: 72, frameHeight: 62 },
+      'zombie_mushroom': { frameWidth: 68, frameHeight: 78 },
+      'pig': { frameWidth: 84, frameHeight: 62 },
+      'ribbon_pig': { frameWidth: 84, frameHeight: 66 },
+      'snail': { frameWidth: 54, frameHeight: 42 },
+    };
+
+    for (const [name, config] of Object.entries(monsterSheets)) {
+      this.load.spritesheet(name, `assets/sprites/monsters/sheets/${name}.png`, {
+        frameWidth: config.frameWidth,
+        frameHeight: config.frameHeight,
+      });
+    }
   }
 
   create(): void {
@@ -1765,65 +1787,8 @@ export class BootScene extends Phaser.Scene {
       this.textures.addSpriteSheet('stump', stumpCanvas.canvas as unknown as HTMLImageElement, { frameWidth: 48, frameHeight: 52 });
     }
 
-    // Blue mushroom variant
-    const blueMushroomCanvas = this.textures.createCanvas('blue_mushroom-sheet', 40 * frameCount, 44);
-    if (blueMushroomCanvas) {
-      const ctx = blueMushroomCanvas.context;
-      ctx.imageSmoothingEnabled = false;
-      for (let i = 0; i < frameCount; i++) {
-        this.drawColoredMushroomFrame(ctx, i * 40, 0, 40, 44, i, '#4169E1', '#1E3A8A');
-      }
-      blueMushroomCanvas.refresh();
-      this.textures.addSpriteSheet('blue_mushroom', blueMushroomCanvas.canvas as unknown as HTMLImageElement, { frameWidth: 40, frameHeight: 44 });
-    }
-
-    // Horny mushroom variant
-    const hornyMushroomCanvas = this.textures.createCanvas('horny_mushroom-sheet', 44 * frameCount, 48);
-    if (hornyMushroomCanvas) {
-      const ctx = hornyMushroomCanvas.context;
-      ctx.imageSmoothingEnabled = false;
-      for (let i = 0; i < frameCount; i++) {
-        this.drawColoredMushroomFrame(ctx, i * 44, 0, 44, 48, i, '#8B4513', '#5D3A1A', true);
-      }
-      hornyMushroomCanvas.refresh();
-      this.textures.addSpriteSheet('horny_mushroom', hornyMushroomCanvas.canvas as unknown as HTMLImageElement, { frameWidth: 44, frameHeight: 48 });
-    }
-
-    // Zombie mushroom variant
-    const zombieMushroomCanvas = this.textures.createCanvas('zombie_mushroom-sheet', 44 * frameCount, 48);
-    if (zombieMushroomCanvas) {
-      const ctx = zombieMushroomCanvas.context;
-      ctx.imageSmoothingEnabled = false;
-      for (let i = 0; i < frameCount; i++) {
-        this.drawColoredMushroomFrame(ctx, i * 44, 0, 44, 48, i, '#556B2F', '#3D4F2F');
-      }
-      zombieMushroomCanvas.refresh();
-      this.textures.addSpriteSheet('zombie_mushroom', zombieMushroomCanvas.canvas as unknown as HTMLImageElement, { frameWidth: 44, frameHeight: 48 });
-    }
-
-    // Ribbon pig variant
-    const ribbonPigCanvas = this.textures.createCanvas('ribbon_pig-sheet', 48 * frameCount, 40);
-    if (ribbonPigCanvas) {
-      const ctx = ribbonPigCanvas.context;
-      ctx.imageSmoothingEnabled = false;
-      for (let i = 0; i < frameCount; i++) {
-        this.drawPigFrame(ctx, i * 48, 0, 48, 40, i);
-        // Add ribbon
-        ctx.fillStyle = '#FF69B4';
-        ctx.beginPath();
-        const cx = i * 48 + 24;
-        ctx.moveTo(cx - 6, 8);
-        ctx.lineTo(cx - 2, 12);
-        ctx.lineTo(cx + 2, 12);
-        ctx.lineTo(cx + 6, 8);
-        ctx.lineTo(cx + 2, 10);
-        ctx.lineTo(cx - 2, 10);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ribbonPigCanvas.refresh();
-      this.textures.addSpriteSheet('ribbon_pig', ribbonPigCanvas.canvas as unknown as HTMLImageElement, { frameWidth: 48, frameHeight: 40 });
-    }
+    // Skip creating procedural variants for sprites that are loaded from real PNG files
+    // Real sprites loaded: blue_mushroom, horny_mushroom, zombie_mushroom, ribbon_pig, pig, snail, orange_mushroom
   }
 
   private drawSentinelFrame(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, frameNum: number): void {
@@ -2024,76 +1989,6 @@ export class BootScene extends Phaser.Scene {
     ctx.lineTo(centerX, baseY - 10 + bounce);
     ctx.lineTo(centerX + 6, baseY - 14 + bounce);
     ctx.stroke();
-  }
-
-  private drawColoredMushroomFrame(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, frameNum: number, capColor: string, capDark: string, hasHorns: boolean = false): void {
-    const stemColor = '#FFF8DC';
-    const stemDark = '#F5DEB3';
-    const spotColor = '#FFFACD';
-
-    const bouncePhase = frameNum / 6;
-    const bounce = Math.sin(bouncePhase * Math.PI * 2) * 2;
-    const centerX = x + width / 2;
-    const baseY = y + height - 6;
-
-    // Stem
-    ctx.fillStyle = stemColor;
-    ctx.beginPath();
-    ctx.ellipse(centerX, baseY - 10, 8, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = stemDark;
-    ctx.beginPath();
-    ctx.ellipse(centerX + 2, baseY - 8, 4, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cap
-    const capY = baseY - 22 + bounce;
-    ctx.fillStyle = capColor;
-    ctx.beginPath();
-    ctx.ellipse(centerX, capY, 16, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cap shadow
-    ctx.fillStyle = capDark;
-    ctx.beginPath();
-    ctx.ellipse(centerX, capY + 6, 14, 4, 0, 0, Math.PI);
-    ctx.fill();
-
-    // Spots
-    ctx.fillStyle = spotColor;
-    ctx.beginPath();
-    ctx.arc(centerX - 6, capY - 2, 3, 0, Math.PI * 2);
-    ctx.arc(centerX + 5, capY - 4, 2.5, 0, Math.PI * 2);
-    ctx.arc(centerX + 2, capY + 2, 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Horns for horny mushroom
-    if (hasHorns) {
-      ctx.fillStyle = capDark;
-      ctx.beginPath();
-      ctx.moveTo(centerX - 10, capY - 8);
-      ctx.lineTo(centerX - 14, capY - 18);
-      ctx.lineTo(centerX - 6, capY - 10);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(centerX + 10, capY - 8);
-      ctx.lineTo(centerX + 14, capY - 18);
-      ctx.lineTo(centerX + 6, capY - 10);
-      ctx.fill();
-    }
-
-    // Eyes
-    const eyeY = baseY - 12;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.ellipse(centerX - 4, eyeY, 3, 4, 0, 0, Math.PI * 2);
-    ctx.ellipse(centerX + 4, eyeY, 3, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(centerX - 3, eyeY + 1, 1.5, 0, Math.PI * 2);
-    ctx.arc(centerX + 5, eyeY + 1, 1.5, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   private createPlatformTexture(): void {
@@ -2404,6 +2299,40 @@ export class BootScene extends Phaser.Scene {
       this.anims.create({
         key: `${monster}-attack`,
         frames: this.anims.generateFrameNumbers(monster, { frames: [2, 3, 4, 5, 0] }),
+        frameRate: 12,
+        repeat: 0,
+      });
+    });
+
+    // Create animations for real sprite sheets (loaded from PNG files)
+    // These have 6 frames: 0-2 = idle, 3-5 = move
+    const realSprites = [
+      'orange_mushroom', 'blue_mushroom', 'horny_mushroom', 'zombie_mushroom',
+      'pig', 'ribbon_pig', 'snail'
+    ];
+
+    realSprites.forEach(sprite => {
+      // Skip if animations already exist (e.g., pig is in both lists)
+      if (this.anims.exists(`${sprite}-idle`)) return;
+
+      this.anims.create({
+        key: `${sprite}-idle`,
+        frames: this.anims.generateFrameNumbers(sprite, { frames: [0, 1, 2] }),
+        frameRate: 6,
+        repeat: -1,
+        yoyo: true,
+      });
+
+      this.anims.create({
+        key: `${sprite}-walk`,
+        frames: this.anims.generateFrameNumbers(sprite, { frames: [3, 4, 5] }),
+        frameRate: 8,
+        repeat: -1,
+      });
+
+      this.anims.create({
+        key: `${sprite}-attack`,
+        frames: this.anims.generateFrameNumbers(sprite, { frames: [3, 4, 5, 4, 3] }),
         frameRate: 12,
         repeat: 0,
       });

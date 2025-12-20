@@ -1,0 +1,17 @@
+{
+  "frameWidth": 68,
+  "frameHeight": 78,
+  "numFrames": 6,
+  "animations": {
+    "idle": [
+      0,
+      1,
+      2
+    ],
+    "move": [
+      3,
+      4,
+      5
+    ]
+  }
+}
